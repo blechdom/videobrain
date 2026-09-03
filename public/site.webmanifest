@@ -1,0 +1,16 @@
+{
+  "name": "VideoBrain Visual Signal Studio",
+  "short_name": "VideoBrain",
+  "description": "Build live, reactive visual signal paths in the browser.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090b10",
+  "theme_color": "#090b10",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

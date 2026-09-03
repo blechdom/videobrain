@@ -1,0 +1,50 @@
+import { createGraphNode } from './model';
+import { GRAPH_SCHEMA_VERSION, type GraphDocument, type GraphEdge } from './types';
+
+const edge = (
+  id: string,
+  sourceNodeId: string,
+  sourcePortId: string,
+  targetNodeId: string,
+  targetPortId: string,
+): GraphEdge => ({
+  id,
+  source: { nodeId: sourceNodeId, portId: sourcePortId },
+  target: { nodeId: targetNodeId, portId: targetPortId },
+});
+
+export function createDefaultGraph(): GraphDocument {
+  return {
+    schemaVersion: GRAPH_SCHEMA_VERSION,
+    nodes: [
+      createGraphNode('audioLevel', { x: -540, y: -410 }, {}, 'audio'),
+      createGraphNode('time', { x: -540, y: -240 }, {}, 'clock'),
+      createGraphNode('oscillator', { x: -300, y: -240 }, {}, 'pulse'),
+      createGraphNode('pointer', { x: 110, y: 280 }, {}, 'pointer'),
+      createGraphNode('plasma', { x: -540, y: 20 }, {}, 'field'),
+      createGraphNode('cells', { x: -540, y: 190 }, {}, 'cells'),
+      createGraphNode('warp', { x: -300, y: 190 }, {}, 'warp'),
+      createGraphNode('blend', { x: -60, y: 70 }, {}, 'blend'),
+      createGraphNode('trails', { x: 180, y: 70 }, {}, 'trails'),
+      createGraphNode('colorGrade', { x: 420, y: 70 }, {}, 'grade'),
+      createGraphNode('display', { x: 660, y: 70 }, {}, 'display'),
+    ],
+    edges: [
+      edge('clock-pulse', 'clock', 'value', 'pulse', 'phase'),
+      edge('clock-field', 'clock', 'value', 'field', 'time'),
+      edge('audio-field', 'audio', 'value', 'field', 'energy'),
+      edge('clock-cells', 'clock', 'value', 'cells', 'time'),
+      edge('pulse-warp', 'pulse', 'value', 'warp', 'amount'),
+      edge('cells-warp', 'cells', 'frame', 'warp', 'source'),
+      edge('field-blend', 'field', 'frame', 'blend', 'a'),
+      edge('warp-blend', 'warp', 'frame', 'blend', 'b'),
+      edge('pulse-blend', 'pulse', 'value', 'blend', 'mix'),
+      edge('blend-trails', 'blend', 'frame', 'trails', 'source'),
+      edge('trails-grade', 'trails', 'frame', 'grade', 'source'),
+      edge('pointer-grade', 'pointer', 'x', 'grade', 'hue'),
+      edge('grade-display', 'grade', 'frame', 'display', 'source'),
+    ],
+  };
+}
+
+export const DEFAULT_GRAPH: GraphDocument = createDefaultGraph();

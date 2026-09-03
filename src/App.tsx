@@ -1,0 +1,461 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  AlertTriangle,
+  CircleCheck,
+  Download,
+  FilePlus2,
+  Pause,
+  Play,
+  Plus,
+  RotateCcw,
+  RotateCw,
+  SkipBack,
+  Upload,
+} from 'lucide-react';
+import { ReactFlowProvider, useReactFlow } from '@xyflow/react';
+import {
+  MAX_GRAPH_JSON_BYTES,
+  tryCompileGraph,
+  type GraphNode,
+  type NodeKind,
+} from './graph';
+import type { RenderResult } from './engine';
+import { CommandPalette } from './components/CommandPalette';
+import { GraphEditor } from './components/GraphEditor';
+import type { OperatorFlowNode } from './components/OperatorNode';
+import { Inspector } from './components/Inspector';
+import { OperatorLibrary } from './components/OperatorLibrary';
+import { PreviewPanel } from './components/PreviewPanel';
+import { useAudioLevel } from './hooks/useAudioLevel';
+import {
+  projectStore,
+  useGraphDocument,
+  usePlaying,
+  useProjectStore,
+  useSelectedNodeId,
+  type PersistenceState,
+} from './store';
+
+interface ToastState {
+  id: number;
+  message: string;
+  tone: 'success' | 'error';
+}
+
+export function App() {
+  return (
+    <ReactFlowProvider>
+      <Studio />
+    </ReactFlowProvider>
+  );
+}
+
+function Studio() {
+  const graphDocument = useGraphDocument();
+  const selectedNodeId = useSelectedNodeId();
+  const playing = usePlaying();
+  const canUndo = useProjectStore((state) => state.canUndo);
+  const canRedo = useProjectStore((state) => state.canRedo);
+  const persistenceState = useProjectStore((state) => state.persistenceState);
+  const addNode = useProjectStore((state) => state.addNode);
+  const deleteNode = useProjectStore((state) => state.deleteNode);
+  const moveNode = useProjectStore((state) => state.moveNode);
+  const setNodeParam = useProjectStore((state) => state.setNodeParam);
+  const connect = useProjectStore((state) => state.connect);
+  const disconnect = useProjectStore((state) => state.disconnect);
+  const selectNode = useProjectStore((state) => state.selectNode);
+  const togglePlaying = useProjectStore((state) => state.togglePlaying);
+  const beginGesture = useProjectStore((state) => state.beginGesture);
+  const endGesture = useProjectStore((state) => state.endGesture);
+  const undo = useProjectStore((state) => state.undo);
+  const redo = useProjectStore((state) => state.redo);
+  const resetProject = useProjectStore((state) => state.resetProject);
+  const importProject = useProjectStore((state) => state.importProject);
+  const exportProject = useProjectStore((state) => state.exportProject);
+  const { screenToFlowPosition } = useReactFlow<OperatorFlowNode>();
+  const audio = useAudioLevel();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const toastTimerRef = useRef<number | undefined>(undefined);
+  const [runtime, setRuntime] = useState<RenderResult | null>(null);
+  const [resetToken, setResetToken] = useState(0);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  const notify = useCallback((message: string, tone: 'success' | 'error' = 'success') => {
+    window.clearTimeout(toastTimerRef.current);
+    setToast({ id: Date.now(), message, tone });
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 3200);
+  }, []);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(toastTimerRef.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const flushProject = () => {
+      projectStore.flushPersistence();
+    };
+    const flushHiddenProject = () => {
+      if (window.document.visibilityState === 'hidden') {
+        flushProject();
+      }
+    };
+
+    window.addEventListener('pagehide', flushProject);
+    window.document.addEventListener('visibilitychange', flushHiddenProject);
+    return () => {
+      window.removeEventListener('pagehide', flushProject);
+      window.document.removeEventListener('visibilitychange', flushHiddenProject);
+    };
+  }, []);
+
+  const placeNode = useCallback(
+    (kind: NodeKind, sourceNode?: GraphNode) => {
+      const stage = window.document.querySelector<HTMLElement>('.graph-stage');
+      const bounds = stage?.getBoundingClientRect();
+      const center = bounds
+        ? screenToFlowPosition({
+            x: bounds.left + bounds.width / 2,
+            y: bounds.top + bounds.height / 2,
+          })
+        : { x: 0, y: 0 };
+      const offset = (graphDocument.nodes.length % 5) * 18;
+      const position = sourceNode
+        ? { x: sourceNode.position.x + 36, y: sourceNode.position.y + 46 }
+        : { x: center.x - 94 + offset, y: center.y - 55 + offset };
+      try {
+        const nodeId = addNode(kind, position, sourceNode?.params);
+        selectNode(nodeId);
+        notify(`${sourceNode ? 'Duplicated' : 'Added'} ${kind}.`);
+      } catch (error) {
+        notify(
+          error instanceof Error ? error.message : 'The node could not be added.',
+          'error',
+        );
+      }
+    },
+    [addNode, graphDocument.nodes.length, notify, screenToFlowPosition, selectNode],
+  );
+
+  const resetRuntime = useCallback(() => {
+    setResetToken((token) => token + 1);
+    notify('Playback returned to frame zero.');
+  }, [notify]);
+
+  const restoreDemo = useCallback(() => {
+    if (!window.confirm('Replace the current patch with the built-in composition?')) {
+      return;
+    }
+    resetProject();
+    setResetToken((token) => token + 1);
+    notify('Built-in composition restored.');
+  }, [notify, resetProject]);
+
+  const downloadProject = useCallback(() => {
+    const blob = new Blob([exportProject()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = window.document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'videobrain-project.json';
+    anchor.click();
+    URL.revokeObjectURL(url);
+    notify('Project exported.');
+  }, [exportProject, notify]);
+
+  const loadProjectFile = useCallback(
+    async (file: File | undefined) => {
+      if (!file) {
+        return;
+      }
+      if (file.size > MAX_GRAPH_JSON_BYTES) {
+        notify(
+          `Project file exceeds the ${MAX_GRAPH_JSON_BYTES.toLocaleString()}-byte limit.`,
+          'error',
+        );
+        return;
+      }
+      const result = importProject(await file.text());
+      if (result.ok) {
+        setResetToken((token) => token + 1);
+        notify('Project imported.');
+      } else {
+        notify(result.error ?? 'The project could not be imported.', 'error');
+      }
+    },
+    [importProject, notify],
+  );
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      const inForm =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLSelectElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      } else if (!inForm && event.key === ' ') {
+        event.preventDefault();
+        togglePlaying();
+      } else if (!inForm && event.key === '/') {
+        event.preventDefault();
+        setCommandOpen(true);
+      } else if (event.key === 'Escape' && commandOpen) {
+        setCommandOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [commandOpen, redo, togglePlaying, undo]);
+
+  const selectedNode =
+    graphDocument.nodes.find((node) => node.id === selectedNodeId) ?? null;
+  const compilation = tryCompileGraph(graphDocument);
+  const graphError = compilation.ok ? null : compilation.issues[0]?.message ?? 'Graph error';
+
+  return (
+    <div className="studio-shell">
+      <Topbar
+        playing={playing}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        persistenceState={persistenceState}
+        onTogglePlaying={togglePlaying}
+        onResetRuntime={resetRuntime}
+        onUndo={undo}
+        onRedo={redo}
+        onAdd={() => setCommandOpen(true)}
+        onNew={restoreDemo}
+        onImport={() => fileInputRef.current?.click()}
+        onExport={downloadProject}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="sr-only"
+        onChange={(event) => {
+          void loadProjectFile(event.target.files?.[0]);
+          event.target.value = '';
+        }}
+      />
+
+      <main className="workspace">
+        <OperatorLibrary onAdd={(kind) => placeNode(kind)} />
+        <GraphEditor
+          document={graphDocument}
+          selectedNodeId={selectedNodeId}
+          playing={playing}
+          onMoveNode={moveNode}
+          onDeleteNode={deleteNode}
+          onDisconnect={disconnect}
+          onConnect={connect}
+          onSelectNode={selectNode}
+          onGestureStart={beginGesture}
+          onGestureEnd={endGesture}
+          onConnectionRejected={(message) => notify(message, 'error')}
+        />
+        <aside className="monitor-rail" aria-label="Output and inspector">
+          <PreviewPanel
+            document={graphDocument}
+            playing={playing}
+            resetToken={resetToken}
+            audioInputState={audio.inputState}
+            meterLevel={audio.meterLevel}
+            sampleAudioLevel={audio.sampleLevel}
+            onRuntimeUpdate={setRuntime}
+            onNotify={notify}
+          />
+          <Inspector
+            node={selectedNode}
+            audioInputState={audio.inputState}
+            onParamChange={setNodeParam}
+            onGestureStart={beginGesture}
+            onGestureEnd={endGesture}
+            onDelete={deleteNode}
+            onDuplicate={(node) => placeNode(node.kind, node)}
+            onEnableMicrophone={audio.enableMicrophone}
+            onDisableMicrophone={audio.disableMicrophone}
+          />
+        </aside>
+      </main>
+
+      <Statusbar
+        graphError={graphError}
+        nodeCount={graphDocument.nodes.length}
+        edgeCount={graphDocument.edges.length}
+        runtime={runtime}
+        persistenceState={persistenceState}
+      />
+      {commandOpen ? (
+        <CommandPalette
+          onAdd={(kind) => placeNode(kind)}
+          onClose={() => setCommandOpen(false)}
+        />
+      ) : null}
+      <div className="toast-region" aria-live="polite" aria-atomic="true">
+        {toast ? <Toast key={toast.id} toast={toast} /> : null}
+      </div>
+    </div>
+  );
+}
+
+interface TopbarProps {
+  playing: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  persistenceState: PersistenceState;
+  onTogglePlaying: () => void;
+  onResetRuntime: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  onAdd: () => void;
+  onNew: () => void;
+  onImport: () => void;
+  onExport: () => void;
+}
+
+function Topbar({
+  playing,
+  canUndo,
+  canRedo,
+  persistenceState,
+  onTogglePlaying,
+  onResetRuntime,
+  onUndo,
+  onRedo,
+  onAdd,
+  onNew,
+  onImport,
+  onExport,
+}: TopbarProps) {
+  return (
+    <header className="topbar">
+      <div className="brand">
+        <span className="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 36 36">
+            <path d="M3 21h5l3-10 5 19 4-25 4 16h9" fill="none" stroke="#d8ff5f" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="3" cy="21" r="1.8" fill="#ff795c" />
+            <circle cx="33" cy="21" r="1.8" fill="#65ddff" />
+          </svg>
+        </span>
+        <span className="brand-copy">
+          <span className="brand-name">VideoBrain</span>
+          <span
+            className={`project-name persistence-${persistenceState}`}
+            aria-live="polite"
+          >
+            Signal Garden / {persistenceState === 'pending'
+              ? 'saving…'
+              : persistenceState === 'failed'
+                ? 'save failed'
+                : 'saved'}
+          </span>
+        </span>
+      </div>
+
+      <div className="transport" aria-label="Playback controls">
+        <button type="button" className="icon-button" onClick={onResetRuntime} title="Return to frame zero">
+          <SkipBack size={14} />
+          <span className="sr-only">Return to frame zero</span>
+        </button>
+        <button
+          type="button"
+          className={`icon-button ${playing ? 'playing' : 'active'}`}
+          onClick={onTogglePlaying}
+          title={playing ? 'Pause' : 'Play'}
+          aria-pressed={playing}
+        >
+          {playing ? <Pause size={14} /> : <Play size={14} />}
+          <span className="sr-only">{playing ? 'Pause' : 'Play'}</span>
+        </button>
+      </div>
+
+      <div className="topbar-actions">
+        <div className="tool-group optional-action">
+          <button type="button" className="icon-button" onClick={onUndo} disabled={!canUndo} title="Undo">
+            <RotateCcw size={14} />
+            <span className="sr-only">Undo</span>
+          </button>
+          <button type="button" className="icon-button" onClick={onRedo} disabled={!canRedo} title="Redo">
+            <RotateCw size={14} />
+            <span className="sr-only">Redo</span>
+          </button>
+        </div>
+        <span className="toolbar-divider" />
+        <button type="button" className="icon-button optional-action" onClick={onNew} title="Restore built-in composition">
+          <FilePlus2 size={14} />
+          <span className="sr-only">Restore built-in composition</span>
+        </button>
+        <button type="button" className="icon-button optional-action" onClick={onImport} title="Import project">
+          <Upload size={14} />
+          <span className="sr-only">Import project</span>
+        </button>
+        <button type="button" className="icon-button optional-action" onClick={onExport} title="Export project">
+          <Download size={14} />
+          <span className="sr-only">Export project</span>
+        </button>
+        <button type="button" className="primary-button" onClick={onAdd}>
+          <Plus size={14} /> Add node
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function Statusbar({
+  graphError,
+  nodeCount,
+  edgeCount,
+  runtime,
+  persistenceState,
+}: {
+  graphError: string | null;
+  nodeCount: number;
+  edgeCount: number;
+  runtime: RenderResult | null;
+  persistenceState: PersistenceState;
+}) {
+  return (
+    <footer className="statusbar">
+      <div className="status-cluster">
+        <span className="status-item">
+          <i className={`status-indicator ${graphError ? 'error' : ''}`} />
+          <strong>{graphError ?? 'Graph healthy'}</strong>
+        </span>
+        <span className="status-item"><strong>{nodeCount}</strong> nodes</span>
+        <span className="status-item"><strong>{edgeCount}</strong> links</span>
+      </div>
+      <div className="status-cluster">
+        <span className="status-item"><strong>{runtime ? Math.round(runtime.fps) : '—'}</strong> fps</span>
+        <span className="status-item"><strong>{runtime?.passCount ?? '—'}</strong> GPU passes</span>
+        <span className={`status-item persistence-${persistenceState}`}>
+          WebGL2 · {persistenceState === 'pending'
+            ? 'saving locally…'
+            : persistenceState === 'failed'
+              ? 'local save failed'
+              : 'local changes saved'}
+        </span>
+      </div>
+    </footer>
+  );
+}
+
+function Toast({ toast }: { toast: ToastState }) {
+  return (
+    <div className={`toast ${toast.tone}`} role={toast.tone === 'error' ? 'alert' : 'status'}>
+      {toast.tone === 'error' ? <AlertTriangle size={15} /> : <CircleCheck size={15} />}
+      <span>{toast.message}</span>
+    </div>
+  );
+}
