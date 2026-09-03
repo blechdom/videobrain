@@ -137,6 +137,16 @@ test('starts camera input only after opt-in and renders its live frame', async (
   await expect(inspector.getByText('Camera off', { exact: true })).toBeVisible();
   await expect.poll(() => cameraRequestCount(page)).toBe(0);
 
+  const videoInputNode = page
+    .locator('article[aria-label="Video Input node"]')
+    .last();
+  const inlineCamera = videoInputNode.getByRole('combobox', {
+    name: 'Video Input Camera',
+  });
+  await inlineCamera.selectOption('environment');
+  await expect(inspector.getByLabel('Camera')).toHaveValue('environment');
+  await expect.poll(() => cameraRequestCount(page)).toBe(0);
+
   await inspector.getByRole('button', { name: 'Enable camera' }).click();
   await expect.poll(() => cameraRequestCount(page)).toBe(1);
   await expect(inspector.getByText('Camera live', { exact: true })).toBeVisible();
@@ -144,17 +154,26 @@ test('starts camera input only after opt-in and renders its live frame', async (
     page.locator('.preview-hud').getByText('camera', { exact: true }),
   ).toBeVisible();
 
+  await inlineCamera.selectOption('user');
+  await expect.poll(() => cameraRequestCount(page)).toBe(2);
+  await expect(inspector.getByText('Camera live', { exact: true })).toBeVisible();
+  await expect(inspector.getByLabel('Camera')).toHaveValue('user');
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(inlineCamera).toHaveValue('environment');
+  await expect(inspector.getByLabel('Camera')).toHaveValue('environment');
+  await expect.poll(() => cameraRequestCount(page)).toBe(3);
+  await expect(inspector.getByText('Camera live', { exact: true })).toBeVisible();
+
   const links = page.locator('[data-testid^="rf__edge-"]');
+  await expect(links).toHaveCount(13);
   const initialLinkCount = await links.count();
   const previousDisplayLink = page.getByTestId('rf__edge-grade-display');
   await selectLink(page, previousDisplayLink);
   await page.keyboard.press('Delete');
   await expect(previousDisplayLink).toHaveCount(0);
 
-  const source = page
-    .locator('article[aria-label="Video Input node"]')
-    .last()
-    .getByLabel('Frame output, frame.rgba');
+  const source = videoInputNode.getByLabel('Frame output, frame.rgba');
   const target = page
     .locator('article[aria-label="Display node"]')
     .getByLabel('Source input, frame.rgba');
@@ -169,17 +188,14 @@ test('starts camera input only after opt-in and renders its live frame', async (
     .poll(() => renderedColorSignal(page), { timeout: 10_000 })
     .toBeGreaterThan(8);
 
-  await page
-    .locator('article[aria-label="Video Input node"]')
-    .last()
-    .click({ force: true });
+  await videoInputNode.locator('.operator-node-header').click();
   await expect(inspector).toBeVisible();
   await inspector.getByRole('button', { name: 'Stop camera' }).click();
   await expect(inspector.getByText('Camera off', { exact: true })).toBeVisible();
   await expect(
     page.locator('.preview-hud').getByText('camera', { exact: true }),
   ).toHaveCount(0);
-  await expect.poll(() => cameraRequestCount(page)).toBe(1);
+  await expect.poll(() => cameraRequestCount(page)).toBe(3);
   await expect
     .poll(() =>
       page.locator('video.video-input-element').evaluate(
@@ -222,16 +238,31 @@ test('adds, inspects, edits, and undoes a node', async ({ page }) => {
   await expect(page.getByText(/12 nodes/).first()).toBeVisible();
 
   const addedNode = page.locator('article[aria-label="Flow Field node"]').last();
-  await addedNode.click({ force: true });
   await expect(page.getByRole('complementary', { name: 'Flow Field inspector' })).toBeVisible();
 
-  const scale = page.locator('.parameter-row').filter({ hasText: 'Scale' }).locator('input');
-  const before = Number(await scale.inputValue());
-  await scale.focus();
-  await scale.press('ArrowRight');
-  await expect.poll(async () => Number(await scale.inputValue())).toBeGreaterThan(before);
+  const inlineScale = addedNode.getByRole('slider', { name: 'Flow Field Scale' });
+  const inspectorScale = page
+    .locator('.parameter-row')
+    .filter({ hasText: 'Scale' })
+    .locator('input');
+  const before = Number(await inlineScale.inputValue());
+  const nodePosition = await addedNode.evaluate(
+    (element) => element.parentElement?.getAttribute('style'),
+  );
+  await inlineScale.focus();
+  await inlineScale.press('ArrowRight');
+  await expect
+    .poll(async () => Number(await inlineScale.inputValue()))
+    .toBeGreaterThan(before);
+  await expect(inspectorScale).toHaveValue(await inlineScale.inputValue());
+  await expect
+    .poll(() =>
+      addedNode.evaluate((element) => element.parentElement?.getAttribute('style')),
+    )
+    .toBe(nodePosition);
 
   await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(inlineScale).toHaveValue(String(before));
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText(/11 nodes/).first()).toBeVisible();
 });

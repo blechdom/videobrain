@@ -18,6 +18,7 @@ import {
   type ConnectionValidation,
   type GraphDocument,
   type GraphEndpoint,
+  type GraphParamValue,
   type GraphPosition,
 } from '../graph';
 import { OperatorNode, type OperatorFlowNode } from './OperatorNode';
@@ -32,6 +33,11 @@ interface GraphEditorProps {
   onDisconnect: (edgeId: string) => void;
   onConnect: (source: GraphEndpoint, target: GraphEndpoint) => ConnectionValidation;
   onSelectNode: (nodeId: string | null) => void;
+  onParamChange: (
+    nodeId: string,
+    paramId: string,
+    value: GraphParamValue,
+  ) => void;
   onGestureStart: () => void;
   onGestureEnd: () => void;
   onConnectionRejected: (message: string) => void;
@@ -72,6 +78,7 @@ export function GraphEditor({
   onDisconnect,
   onConnect,
   onSelectNode,
+  onParamChange,
   onGestureStart,
   onGestureEnd,
   onConnectionRejected,
@@ -100,9 +107,24 @@ export function GraphEditor({
           kind: node.kind,
           params: node.params,
           reachable: reachable.has(node.id),
+          onParamChange,
+          onGestureStart,
+          onGestureEnd,
+          onSelect: () => {
+            setSelectedEdgeId(null);
+            onSelectNode(node.id);
+          },
         },
       })),
-    [document.nodes, reachable, selectedNodeId],
+    [
+      document.nodes,
+      onGestureEnd,
+      onGestureStart,
+      onParamChange,
+      onSelectNode,
+      reachable,
+      selectedNodeId,
+    ],
   );
 
   const edges = useMemo<Edge[]>(

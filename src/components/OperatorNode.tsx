@@ -10,12 +10,21 @@ import {
   type GraphParamValue,
   type NodeKind,
 } from '../graph';
+import { NodeParameterControls } from './NodeParameterControls';
 import { DOMAIN_LABELS, OPERATOR_META } from './operatorMeta';
 
 export interface OperatorNodeData extends Record<string, unknown> {
   kind: NodeKind;
   params: Record<string, GraphParamValue>;
   reachable: boolean;
+  onParamChange: (
+    nodeId: string,
+    paramId: string,
+    value: GraphParamValue,
+  ) => void;
+  onGestureStart: () => void;
+  onGestureEnd: () => void;
+  onSelect: () => void;
 }
 
 export type OperatorFlowNode = Node<OperatorNodeData, 'operator'>;
@@ -30,7 +39,7 @@ function summarizeParams(params: Record<string, GraphParamValue>): string {
   return `${key} ${shown}`;
 }
 
-function OperatorNodeView({ data, selected, isConnectable }: NodeProps<OperatorFlowNode>) {
+function OperatorNodeView({ id, data, selected, isConnectable }: NodeProps<OperatorFlowNode>) {
   const definition = getOperatorDefinition(data.kind);
   const meta = OPERATOR_META[data.kind];
   const Icon = meta.icon;
@@ -91,6 +100,16 @@ function OperatorNodeView({ data, selected, isConnectable }: NodeProps<OperatorF
           ))}
         </div>
       </div>
+
+      <NodeParameterControls
+        nodeId={id}
+        definition={definition}
+        params={data.params}
+        onParamChange={data.onParamChange}
+        onGestureStart={data.onGestureStart}
+        onGestureEnd={data.onGestureEnd}
+        onSelect={data.onSelect}
+      />
 
       <footer className="node-param-summary">
         <span>{definition.kind}</span>

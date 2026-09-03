@@ -18,6 +18,9 @@ describe('HelpDialog', () => {
       'href',
       'https://github.com/blechdom/videobrain/blob/main/docs/FUTURE_DEVELOPMENT.md',
     );
+    expect(
+      screen.getByRole('link', { name: /Component catalog/ }),
+    ).toHaveAttribute('href', 'https://videobrain.org/storybook/');
     expect(screen.getByRole('link', { name: /Contribute on GitHub/ })).toHaveAttribute(
       'href',
       'https://github.com/blechdom/videobrain',

@@ -44,7 +44,7 @@ describe('video input inspector', () => {
     expect(props.onEnableCamera).toHaveBeenCalledWith('user');
   });
 
-  it('switches an active device when the camera parameter changes', async () => {
+  it('sends camera changes through the shared parameter handler', async () => {
     const user = userEvent.setup();
     const onParamChange = vi.fn();
     const onEnableCamera = vi.fn().mockResolvedValue(undefined);
@@ -59,7 +59,7 @@ describe('video input inspector', () => {
     await user.selectOptions(screen.getByLabelText('Camera'), 'environment');
 
     expect(onParamChange).toHaveBeenCalledWith('camera-1', 'facing', 'environment');
-    expect(onEnableCamera).toHaveBeenCalledWith('environment');
+    expect(onEnableCamera).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: 'Stop camera' }));
     expect(onDisableCamera).toHaveBeenCalledOnce();

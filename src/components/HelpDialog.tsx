@@ -5,6 +5,7 @@ import { DOMAIN_LABELS } from './operatorMeta';
 
 const REPOSITORY_URL = 'https://github.com/blechdom/videobrain';
 const ROADMAP_URL = `${REPOSITORY_URL}/blob/main/docs/FUTURE_DEVELOPMENT.md`;
+const COMPONENT_CATALOG_URL = 'https://videobrain.org/storybook/';
 
 interface HelpDialogProps {
   onClose: () => void;
@@ -253,6 +254,9 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
             <span>Browser-native visual signal studio · proof of concept</span>
           </div>
           <div className="help-footer-links">
+            <a href={COMPONENT_CATALOG_URL} target="_blank" rel="noreferrer">
+              Component catalog <ExternalLink size={12} aria-hidden="true" />
+            </a>
             <a href={ROADMAP_URL} target="_blank" rel="noreferrer">
               Full roadmap <ExternalLink size={12} aria-hidden="true" />
             </a>

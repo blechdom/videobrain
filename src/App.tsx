@@ -18,6 +18,7 @@ import {
   MAX_GRAPH_JSON_BYTES,
   tryCompileGraph,
   type GraphNode,
+  type GraphParamValue,
   type NodeKind,
 } from './graph';
 import type { RenderResult } from './engine';
@@ -88,6 +89,7 @@ function Studio() {
   } = useVideoInput();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toastTimerRef = useRef<number | undefined>(undefined);
+  const previousGraphDocumentRef = useRef(graphDocument);
   const [runtime, setRuntime] = useState<RenderResult | null>(null);
   const [resetToken, setResetToken] = useState(0);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -131,6 +133,41 @@ function Studio() {
       disableCamera();
     }
   }, [disableCamera, hasVideoInput, videoInputState]);
+
+  useEffect(() => {
+    const previousDocument = previousGraphDocumentRef.current;
+    previousGraphDocumentRef.current = graphDocument;
+    if (
+      previousDocument === graphDocument ||
+      (videoInputState !== 'live' && videoInputState !== 'requesting')
+    ) {
+      return;
+    }
+
+    const changedVideoInput = graphDocument.nodes.find((node) => {
+      if (node.kind !== 'videoInput') {
+        return false;
+      }
+      const previousNode = previousDocument.nodes.find(
+        (candidate) => candidate.id === node.id && candidate.kind === 'videoInput',
+      );
+      return previousNode?.params.facing !== node.params.facing;
+    });
+    const requestedFacing = changedVideoInput?.params.facing;
+    if (
+      (requestedFacing === 'user' || requestedFacing === 'environment') &&
+      requestedFacing !== videoFacingMode
+    ) {
+      void enableCamera(requestedFacing);
+    }
+  }, [enableCamera, graphDocument, videoFacingMode, videoInputState]);
+
+  const handleNodeParamChange = useCallback(
+    (nodeId: string, paramId: string, value: GraphParamValue) => {
+      setNodeParam(nodeId, paramId, value);
+    },
+    [setNodeParam],
+  );
 
   const placeNode = useCallback(
     (kind: NodeKind, sourceNode?: GraphNode) => {
@@ -296,6 +333,7 @@ function Studio() {
           onDisconnect={disconnect}
           onConnect={connect}
           onSelectNode={selectNode}
+          onParamChange={handleNodeParamChange}
           onGestureStart={beginGesture}
           onGestureEnd={endGesture}
           onConnectionRejected={(message) => notify(message, 'error')}
@@ -319,7 +357,7 @@ function Studio() {
             videoInputState={videoInputState}
             videoInputError={videoInputError}
             videoFacingMode={videoFacingMode}
-            onParamChange={setNodeParam}
+            onParamChange={handleNodeParamChange}
             onGestureStart={beginGesture}
             onGestureEnd={endGesture}
             onDelete={deleteNode}

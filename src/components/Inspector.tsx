@@ -9,6 +9,7 @@ import type {
   VideoFacingMode,
   VideoInputState,
 } from '../hooks/useVideoInput';
+import { formatParameterNumber } from './parameterFormatting';
 import { DOMAIN_LABELS, OPERATOR_META } from './operatorMeta';
 
 interface InspectorProps {
@@ -111,18 +112,9 @@ export function Inspector({
                     <span className="parameter-label">{parameter.label}</span>
                     <select
                       value={String(value)}
-                      onChange={(event) => {
-                        const nextValue = event.target.value;
-                        onParamChange(node.id, paramId, nextValue);
-                        if (
-                          node.kind === 'videoInput' &&
-                          paramId === 'facing' &&
-                          (videoInputState === 'live' || videoInputState === 'requesting') &&
-                          (nextValue === 'user' || nextValue === 'environment')
-                        ) {
-                          void onEnableCamera(nextValue);
-                        }
-                      }}
+                      onChange={(event) =>
+                        onParamChange(node.id, paramId, event.target.value)
+                      }
                     >
                       {parameter.options.map((option) => (
                         <option value={option.value} key={option.value}>{option.label}</option>
@@ -138,7 +130,9 @@ export function Inspector({
                 <label className="parameter-row" key={paramId}>
                   <span className="parameter-label-row">
                     <span className="parameter-label">{parameter.label}</span>
-                    <output className="parameter-value">{formatNumber(numericValue, parameter.step)}</output>
+                    <output className="parameter-value">
+                      {formatParameterNumber(numericValue, parameter.step)}
+                    </output>
                   </span>
                   <input
                     type="range"
@@ -277,14 +271,4 @@ function videoStateDescription(state: VideoInputState): string {
     case 'error':
       return 'Check the camera and browser permissions, then try again.';
   }
-}
-
-function formatNumber(value: number, step: number): string {
-  if (Math.abs(step) >= 1) {
-    return value.toFixed(0);
-  }
-  if (Math.abs(step) >= 0.1) {
-    return value.toFixed(1);
-  }
-  return value.toFixed(2);
 }

@@ -11,6 +11,9 @@ Production uses:
 The stack must be deployed in `us-east-1` because CloudFront certificates must
 exist there. `www.videobrain.org` redirects to the apex domain, and directory
 paths resolve to their `index.html` document.
+The component catalog is published at `/storybook/`; only that path allows
+same-origin framing, which its preview pane requires. The main application
+continues to deny framing.
 
 ## Prerequisites
 
@@ -70,12 +73,13 @@ credentials through OIDC; do not add long-lived AWS access keys to GitHub.
 
 ```bash
 npm ci
-npm run verify
+npm run build:deploy
+npm run check:storybook-dist
 AWS_PROFILE=videobrain ./scripts/deploy-aws-site.sh dist
 ```
 
 When no artifact argument is supplied, the deployment script runs
-`npm run build` itself. To preview the S3 synchronization without uploading,
+`npm run build:deploy` itself. To preview the S3 synchronization without uploading,
 deleting, or invalidating anything:
 
 ```bash
@@ -88,7 +92,8 @@ deploys successful pushes to `main`. HTML is published with immediate
 revalidation after all other assets are present; other assets use a five-minute
 revalidation window. Old hashed assets are retained so cached pages never point
 at files removed during a release. Each release waits for its CloudFront
-invalidation and then smoke-tests the production URLs.
+invalidation and then smoke-tests the application, component catalog, and their
+separate framing policies.
 
 ## Cost and recovery
 

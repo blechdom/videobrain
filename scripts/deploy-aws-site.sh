@@ -20,11 +20,11 @@ fi
 if [[ $# -eq 0 ]]; then
   (
     cd "$repo_root"
-    npm run build
+    npm run build:deploy
   )
 elif [[ ! -d "$artifact_dir" ]]; then
   echo "Artifact directory does not exist: $artifact_dir" >&2
-  echo "Build the deployable site first with: npm run build" >&2
+  echo "Build the complete deployable site first with: npm run build:deploy" >&2
   exit 1
 fi
 
@@ -32,6 +32,15 @@ if [[ ! -f "$artifact_dir/index.html" ]]; then
   echo "Artifact is incomplete: missing index.html in $artifact_dir" >&2
   exit 1
 fi
+
+for required_storybook_file in index.html iframe.html index.json; do
+  if [[ ! -f "$artifact_dir/storybook/$required_storybook_file" ]]; then
+    echo "Artifact is incomplete: missing storybook/$required_storybook_file" >&2
+    echo "Build the complete deployable site first with: npm run build:deploy" >&2
+    exit 1
+  fi
+done
+node "$repo_root/scripts/check-storybook-artifact.mjs" "$artifact_dir/storybook"
 
 aws_args=(--region "$region")
 if [[ -n "${AWS_PROFILE:-}" ]]; then

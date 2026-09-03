@@ -747,6 +747,100 @@ select:focus-visible,
   white-space: nowrap;
 }
 
+.node-parameter-list {
+  display: grid;
+  gap: 9px;
+  padding: 9px 10px 10px;
+  border-top: 1px solid var(--line);
+  background: rgb(8 10 15 / 42%);
+}
+
+.operator-node:not(.selected) .node-parameter-list {
+  display: none;
+}
+
+.node-parameter {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--muted);
+  font: 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.node-parameter-heading,
+.node-parameter-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+}
+
+.node-parameter-heading output {
+  color: var(--node-accent, var(--acid));
+  font: 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0;
+}
+
+.node-parameter input[type="range"] {
+  width: 100%;
+  height: 2px;
+  margin: 4px 0;
+  border-radius: 99px;
+  outline: none;
+  background: linear-gradient(
+    to right,
+    var(--node-accent, var(--acid)) 0 var(--range-progress, 50%),
+    var(--line) var(--range-progress, 50%) 100%
+  );
+  cursor: ew-resize;
+  appearance: none;
+}
+
+.node-parameter input[type="range"]::-webkit-slider-thumb {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #11141a;
+  border-radius: 50%;
+  background: var(--node-accent, var(--acid));
+  box-shadow: 0 0 0 1px var(--node-accent, var(--acid));
+  appearance: none;
+}
+
+.node-parameter input[type="range"]::-moz-range-thumb {
+  width: 8px;
+  height: 8px;
+  border: 2px solid #11141a;
+  border-radius: 50%;
+  background: var(--node-accent, var(--acid));
+  box-shadow: 0 0 0 1px var(--node-accent, var(--acid));
+}
+
+.node-parameter select {
+  min-width: 0;
+  width: 92px;
+  height: 23px;
+  padding: 0 5px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  outline: none;
+  background: #0b0e13;
+  font: 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: none;
+}
+
+.node-parameter select:focus {
+  border-color: var(--node-accent, var(--acid));
+}
+
+.node-parameter input[type="range"]:focus-visible,
+.node-parameter select:focus-visible {
+  outline: 2px solid var(--node-accent, var(--acid));
+  outline-offset: 3px;
+}
+
 .monitor-rail {
   display: grid;
   grid-template-rows: minmax(250px, 46%) minmax(0, 54%);

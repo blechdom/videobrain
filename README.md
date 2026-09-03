@@ -13,11 +13,13 @@ The proof of concept opens into a working composition and runs locally without a
 - Opt-in live camera frames with facing, fit, and mirror controls
 - Live WebGL2 output with play, pause, reset, and fullscreen modes
 - Node creation, connection, deletion, movement, and parameter editing
+- Inline node sliders and selects synchronized with the inspector
 - Undo and redo for project edits
 - Versioned local autosave plus JSON import and export
 - Transactional import validation with bounded graph and GPU resource budgets
 - Responsive editor layout and keyboard shortcuts
 - Built-in Help & About guide with quick-start recipes and contribution links
+- A production component catalog at [videobrain.org/storybook](https://videobrain.org/storybook/)
 - Static AWS deployment through private S3, CloudFront, ACM, Route 53, and GitHub OIDC
 
 ## Run locally
@@ -35,6 +37,15 @@ Open the URL printed by Vite. The production build is fully static:
 npm run verify
 npm run preview
 ```
+
+Run the component catalog separately during UI development:
+
+```bash
+npm run storybook
+```
+
+Build the complete deployable site, including the catalog, with
+`npm run build:deploy`.
 
 ## Controls
 
@@ -56,6 +67,7 @@ src/graph/       Serializable graph model, registry, validation, and planning
 src/engine/      WebGL2 programs, texture passes, feedback state, and presentation
 src/store/       Commands, history, persistence, and session state
 src/components/  Editor, nodes, inspector, monitor, and application chrome
+stories/         Production-component examples and state matrices
 docs/            Architecture and MVP decision records
 infra/           CloudFormation for the production static site
 scripts/         Infrastructure bootstrap and manual deployment helpers
