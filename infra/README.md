@@ -22,15 +22,18 @@ paths resolve to their `index.html` document.
 4. Create a GitHub environment named `production`, restrict it to `main`, and
    add required reviewers if desired.
 
-The bootstrap script defaults to this GitHub OIDC subject:
+The bootstrap script asks GitHub for the repository's exact OIDC subject prefix
+and appends the `production` environment. For this repository, the resolved
+subject is:
 
 ```text
-repo:blechdom/videobrain:environment:production
+repo:blechdom@1987426/videobrain@1356238518:environment:production
 ```
 
-An organization can customize OIDC subjects. Confirm the exact subject in the
-repository or organization Actions OIDC settings. If it differs, pass it during
-bootstrap:
+GitHub's immutable subject format includes stable owner and repository IDs.
+That prevents a renamed or transferred repository from inheriting this role by
+name alone. An organization can still customize OIDC subjects; override the
+resolved value when required:
 
 ```bash
 GITHUB_OIDC_SUBJECT='the-exact-configured-subject' \

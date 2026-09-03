@@ -11,7 +11,9 @@ describe('AWS static-site deployment', () => {
     const template = await load('infra/site.yml');
 
     expect(template).toContain('Default: videobrain.org');
-    expect(template).toContain('Default: repo:blechdom/videobrain:environment:production');
+    expect(template).toContain(
+      'Default: repo:blechdom@1987426/videobrain@1356238518:environment:production',
+    );
     expect(template).toMatch(/BlockPublicAcls:\s+true/);
     expect(template).toMatch(/BlockPublicPolicy:\s+true/);
     expect(template).toMatch(/ObjectOwnership:\s+BucketOwnerEnforced/);
@@ -76,6 +78,12 @@ describe('AWS static-site deployment', () => {
     expect(bootstrap).toContain('videobrain-production');
     expect(bootstrap).toContain('videobrain.org');
     expect(bootstrap).toContain('blechdom/videobrain');
+    expect(bootstrap).toContain('actions/oidc/customization/sub');
+    expect(bootstrap).toContain('--jq .sub_claim_prefix');
+    expect(bootstrap).toContain(
+      'github_oidc_subject="${github_subject_prefix}:environment:${github_environment_claim}"',
+    );
+    expect(bootstrap).toContain('GITHUB_OIDC_SUBJECT explicitly');
     expect(bootstrap).toContain('Existing apex/www records must be reviewed');
     expect(bootstrap).toContain('CreateGitHubOidcProvider=$create_provider');
     expect(deploy).toContain('videobrain-production');

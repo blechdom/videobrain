@@ -8,7 +8,7 @@ domain="${DOMAIN_NAME:-videobrain.org}"
 domain="${domain%.}"
 github_repository="${GITHUB_REPOSITORY:-blechdom/videobrain}"
 github_environment="${GITHUB_ENVIRONMENT:-production}"
-github_oidc_subject="${GITHUB_OIDC_SUBJECT:-repo:${github_repository}:environment:${github_environment}}"
+github_oidc_subject="${GITHUB_OIDC_SUBJECT:-}"
 
 if ! command -v aws >/dev/null 2>&1; then
   echo "AWS CLI v2 is required." >&2
@@ -18,6 +18,29 @@ fi
 if [[ "$github_repository" != */* ]]; then
   echo "GITHUB_REPOSITORY must use owner/repository form." >&2
   exit 1
+fi
+
+if [[ -z "$github_oidc_subject" ]]; then
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "GitHub CLI is required to resolve this repository's exact OIDC subject." >&2
+    echo "Install and authenticate gh, or set GITHUB_OIDC_SUBJECT explicitly." >&2
+    exit 1
+  fi
+  if ! github_subject_prefix="$(
+    gh api \
+      "repos/$github_repository/actions/oidc/customization/sub" \
+      --jq .sub_claim_prefix
+  )"; then
+    echo "Could not resolve the GitHub OIDC subject prefix for $github_repository." >&2
+    echo "Confirm gh authentication, or set GITHUB_OIDC_SUBJECT explicitly." >&2
+    exit 1
+  fi
+  if [[ -z "$github_subject_prefix" || "$github_subject_prefix" = "null" ]]; then
+    echo "GitHub returned an empty OIDC subject prefix for $github_repository." >&2
+    exit 1
+  fi
+  github_environment_claim="${github_environment//:/%3A}"
+  github_oidc_subject="${github_subject_prefix}:environment:${github_environment_claim}"
 fi
 
 aws_args=(--region "$region")

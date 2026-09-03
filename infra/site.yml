@@ -11,7 +11,7 @@ Parameters:
     Description: Public Route 53 hosted zone for DomainName.
   GitHubOidcSubject:
     Type: String
-    Default: repo:blechdom/videobrain:environment:production
+    Default: repo:blechdom@1987426/videobrain@1356238518:environment:production
     Description: Exact GitHub Actions OIDC subject accepted by the deploy role.
   CreateGitHubOidcProvider:
     Type: String
