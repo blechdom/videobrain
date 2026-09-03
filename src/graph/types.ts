@@ -5,6 +5,7 @@ export const NODE_KINDS = [
   'oscillator',
   'pointer',
   'audioLevel',
+  'videoInput',
   'plasma',
   'cells',
   'warp',

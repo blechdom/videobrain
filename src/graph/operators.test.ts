@@ -57,4 +57,19 @@ describe('operator registry', () => {
 
     expect(signalTypes).toEqual(new Set(['frame.rgba', 'control.f32']));
   });
+
+  it('defines live video as a frame source with safe presentation defaults', () => {
+    const definition = OPERATOR_REGISTRY.videoInput;
+
+    expect(definition.domain).toBe('frame');
+    expect(definition.inputs).toEqual([]);
+    expect(definition.outputs).toEqual([
+      { id: 'frame', label: 'Frame', type: 'frame.rgba', optional: false },
+    ]);
+    expect(getDefaultParams('videoInput')).toEqual({
+      facing: 'user',
+      fit: 'cover',
+      mirror: 'on',
+    });
+  });
 });

@@ -8,7 +8,7 @@ export default defineConfig({
     sourcemap: true,
   },
   test: {
-    include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.ts'],
     environment: 'jsdom',
     globals: true,
     setupFiles: './src/test/setup.ts',

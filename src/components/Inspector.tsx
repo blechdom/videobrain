@@ -1,15 +1,22 @@
-import { Braces, Copy, Mic2, Trash2 } from 'lucide-react';
+import { Braces, Copy, Mic2, Trash2, Video } from 'lucide-react';
 import {
   getOperatorDefinition,
   type GraphNode,
   type GraphParamValue,
 } from '../graph';
 import type { AudioInputState } from '../hooks/useAudioLevel';
+import type {
+  VideoFacingMode,
+  VideoInputState,
+} from '../hooks/useVideoInput';
 import { DOMAIN_LABELS, OPERATOR_META } from './operatorMeta';
 
 interface InspectorProps {
   node: GraphNode | null;
   audioInputState: AudioInputState;
+  videoInputState: VideoInputState;
+  videoInputError: string | null;
+  videoFacingMode: VideoFacingMode;
   onParamChange: (nodeId: string, paramId: string, value: GraphParamValue) => void;
   onGestureStart: () => void;
   onGestureEnd: () => void;
@@ -17,11 +24,16 @@ interface InspectorProps {
   onDuplicate: (node: GraphNode) => void;
   onEnableMicrophone: () => Promise<void>;
   onDisableMicrophone: () => void;
+  onEnableCamera: (facingMode: VideoFacingMode) => Promise<void>;
+  onDisableCamera: () => void;
 }
 
 export function Inspector({
   node,
   audioInputState,
+  videoInputState,
+  videoInputError,
+  videoFacingMode,
   onParamChange,
   onGestureStart,
   onGestureEnd,
@@ -29,6 +41,8 @@ export function Inspector({
   onDuplicate,
   onEnableMicrophone,
   onDisableMicrophone,
+  onEnableCamera,
+  onDisableCamera,
 }: InspectorProps) {
   if (!node) {
     return (
@@ -47,6 +61,8 @@ export function Inspector({
   const definition = getOperatorDefinition(node.kind);
   const meta = OPERATOR_META[node.kind];
   const Icon = meta.icon;
+  const selectedFacingMode: VideoFacingMode =
+    node.params.facing === 'environment' ? 'environment' : 'user';
 
   return (
     <aside
@@ -95,7 +111,18 @@ export function Inspector({
                     <span className="parameter-label">{parameter.label}</span>
                     <select
                       value={String(value)}
-                      onChange={(event) => onParamChange(node.id, paramId, event.target.value)}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        onParamChange(node.id, paramId, nextValue);
+                        if (
+                          node.kind === 'videoInput' &&
+                          paramId === 'facing' &&
+                          (videoInputState === 'live' || videoInputState === 'requesting') &&
+                          (nextValue === 'user' || nextValue === 'environment')
+                        ) {
+                          void onEnableCamera(nextValue);
+                        }
+                      }}
                     >
                       {parameter.options.map((option) => (
                         <option value={option.value} key={option.value}>{option.label}</option>
@@ -163,6 +190,49 @@ export function Inspector({
         </section>
       ) : null}
 
+      {node.kind === 'videoInput' ? (
+        <section className="inspector-section camera-input-section">
+          <div className="section-label">Input source</div>
+          <div className={`input-state input-state-${videoInputState}`} aria-live="polite">
+            <i aria-hidden="true" />
+            <strong>{videoStateLabel(videoInputState)}</strong>
+            {videoInputState === 'live' ? (
+              <span>{videoFacingMode === 'environment' ? 'rear' : 'front'}</span>
+            ) : null}
+          </div>
+          <p
+            className="inspector-description"
+            role={videoInputError ? 'alert' : undefined}
+          >
+            {videoInputError ?? videoStateDescription(videoInputState)}
+          </p>
+          <button
+            type="button"
+            className={videoInputState === 'live' ? 'danger-button' : 'primary-button'}
+            onClick={() => {
+              if (videoInputState === 'live') {
+                onDisableCamera();
+              } else {
+                void onEnableCamera(selectedFacingMode);
+              }
+            }}
+            disabled={videoInputState === 'requesting'}
+          >
+            <Video size={13} />
+            {videoInputState === 'live'
+              ? 'Stop camera'
+              : videoInputState === 'requesting'
+                ? 'Requesting…'
+                : videoInputState === 'idle'
+                  ? 'Enable camera'
+                  : 'Try camera again'}
+          </button>
+          <p className="input-privacy-note">
+            Permission is requested only when you enable the camera. Frames stay in this tab.
+          </p>
+        </section>
+      ) : null}
+
       <div className="inspector-actions">
         <button type="button" className="text-button" onClick={() => onDuplicate(node)}>
           <Copy size={13} /> Duplicate
@@ -173,6 +243,40 @@ export function Inspector({
       </div>
     </aside>
   );
+}
+
+function videoStateLabel(state: VideoInputState): string {
+  switch (state) {
+    case 'idle':
+      return 'Camera off';
+    case 'requesting':
+      return 'Waiting for permission';
+    case 'live':
+      return 'Camera live';
+    case 'denied':
+      return 'Permission blocked';
+    case 'unavailable':
+      return 'Camera unavailable';
+    case 'error':
+      return 'Camera error';
+  }
+}
+
+function videoStateDescription(state: VideoInputState): string {
+  switch (state) {
+    case 'idle':
+      return 'The camera is off. Enable it to feed live frames into this node.';
+    case 'requesting':
+      return 'Choose Allow in the browser prompt to start the selected camera.';
+    case 'live':
+      return 'Live frames are available to every connected branch of this patch.';
+    case 'denied':
+      return 'Allow camera permission for this site, then try again.';
+    case 'unavailable':
+      return 'Connect a camera or choose another available input.';
+    case 'error':
+      return 'Check the camera and browser permissions, then try again.';
+  }
 }
 
 function formatNumber(value: number, step: number): string {

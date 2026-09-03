@@ -9,7 +9,7 @@ VideoBrain is a browser-native environment for building live visual systems from
 The first release focuses on two cooperating graphs:
 
 - a GPU-backed frame graph for generating and processing images;
-- a CPU-backed control graph for time, oscillation, pointer/audio input, and parameter modulation.
+- a CPU-backed control graph for time, oscillation, pointer/audio input, and parameter modulation, alongside camera frames in the GPU frame graph.
 
 The architecture deliberately separates the editor, the persistent project, and the real-time runtime. This lets the product change its renderer, move work to workers, add collaboration, or expose an automation API without replacing the graph editor.
 
@@ -78,7 +78,7 @@ Parameter modulation is part of the dependency graph. Numeric parameters may exp
 
 ### Producer, processor, and output
 
-- A producer creates data without a graph input, such as a pattern or clock; uploads and cameras are future producers.
+- A producer creates data without a graph input, such as a pattern, clock, or the current opt-in camera source; uploads are a future producer.
 - A processor transforms one or more compatible inputs, such as transform, grade, blur, mix, arithmetic, or smoothing.
 - An output is a demand root that presents, records, or transmits data.
 
@@ -159,6 +159,7 @@ The POC renderer owns:
 - context creation, capability checks, and context-loss recovery;
 - shader compilation and caching by node kind;
 - texture and framebuffer allocation;
+- live camera frame texture upload, fit/mirror presentation, and a safe fallback when no frame is available;
 - per-node textures and framebuffer lifetimes;
 - a neutral fallback texture for missing or failed inputs;
 - presentation and runtime diagnostics.

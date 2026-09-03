@@ -7,12 +7,15 @@ import {
   type RenderResult,
 } from '../engine';
 import type { AudioInputState } from '../hooks/useAudioLevel';
+import type { VideoInputState } from '../hooks/useVideoInput';
 
 interface PreviewPanelProps {
   document: GraphDocument;
   playing: boolean;
   resetToken: number;
   audioInputState: AudioInputState;
+  videoInputState: VideoInputState;
+  videoSource: HTMLVideoElement | null;
   meterLevel: number;
   sampleAudioLevel: (timeSeconds: number) => number;
   onRuntimeUpdate: (result: RenderResult | null) => void;
@@ -24,6 +27,8 @@ export function PreviewPanel({
   playing,
   resetToken,
   audioInputState,
+  videoInputState,
+  videoSource,
   meterLevel,
   sampleAudioLevel,
   onRuntimeUpdate,
@@ -103,6 +108,15 @@ export function PreviewPanel({
       onNotify(message, 'error');
     }
   }, [document, onNotify, renderOnce]);
+
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer) {
+      return;
+    }
+    renderer.setVideoSource(videoSource);
+    renderOnce(true);
+  }, [renderOnce, videoSource]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -251,6 +265,7 @@ export function PreviewPanel({
             <span>·</span>
             <span>{Math.round(runtime.fps)} fps</span>
             {audioInputState === 'live' ? <><span>·</span><span>mic</span></> : null}
+            {videoInputState === 'live' ? <><span>·</span><span>camera</span></> : null}
           </div>
         ) : null}
       </div>

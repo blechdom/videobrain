@@ -10,12 +10,14 @@ The proof of concept opens into a working composition and runs locally without a
 - Demand-rooted graph compilation with cycle rejection
 - Procedural GPU sources, warp, blend, trails, color grading, and display
 - Clock, oscillator, pointer, and opt-in microphone controls
+- Opt-in live camera frames with facing, fit, and mirror controls
 - Live WebGL2 output with play, pause, reset, and fullscreen modes
 - Node creation, connection, deletion, movement, and parameter editing
 - Undo and redo for project edits
 - Versioned local autosave plus JSON import and export
 - Transactional import validation with bounded graph and GPU resource budgets
 - Responsive editor layout and keyboard shortcuts
+- Built-in Help & About guide with quick-start recipes and contribution links
 - Static AWS deployment through private S3, CloudFront, ACM, Route 53, and GitHub OIDC
 
 ## Run locally
@@ -45,7 +47,7 @@ npm run preview
 | Open node search | `/` |
 | Dismiss a panel | `Escape` |
 
-Microphone input is optional and begins only after pressing its explicit enable control. Without it, the included composition uses a deterministic demo pulse.
+Camera and microphone input are optional and begin only after pressing their explicit enable controls. Without microphone access, the included composition uses a deterministic demo pulse. The built-in composition does not request either permission.
 
 ## Project structure
 
@@ -59,7 +61,9 @@ infra/           CloudFormation for the production static site
 scripts/         Infrastructure bootstrap and manual deployment helpers
 ```
 
-The editor never owns GPU resources, and the renderer never mutates the project. See [the architecture](docs/ARCHITECTURE.md) and [the MVP decision](docs/MVP.md) for the reasoning and future boundaries.
+The editor never owns GPU resources, and the renderer never mutates the project. See [the architecture](docs/ARCHITECTURE.md), [the MVP decision](docs/MVP.md), and the comprehensive [future-development catalog](docs/FUTURE_DEVELOPMENT.md) for the reasoning, node roadmap, I/O options, and example patches.
+
+Use the question-mark button in the app for a quick start, signal concepts, current nodes, starter recipes, device guidance, and direct contribution links.
 
 ## Deployment
 

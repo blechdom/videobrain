@@ -101,6 +101,19 @@ const definitions = [
     },
   },
   {
+    kind: 'videoInput',
+    title: 'Video Input',
+    summary: 'A live camera frame from this browser session.',
+    domain: 'frame',
+    inputs: [],
+    outputs: [port('frame', 'Frame', 'frame.rgba')],
+    params: {
+      facing: selectParam('Camera', 'user', ['user', 'environment']),
+      fit: selectParam('Fit', 'cover', ['cover', 'contain', 'stretch']),
+      mirror: selectParam('Mirror', 'on', ['on', 'off']),
+    },
+  },
+  {
     kind: 'plasma',
     title: 'Flow Field',
     summary: 'A fluid procedural color field.',

@@ -49,7 +49,7 @@ The application opens directly into a working project. The user can:
 9. reload the page and recover the saved project;
 10. import or export the project as JSON.
 
-The default composition should be attractive without media permissions. A procedural pattern passes through transform and color stages into the output, with periodic control nodes driving motion and color. A Delay-based trail can be included if it is stable before launch. Camera and microphone inputs are optional enhancements activated only by an explicit user action.
+The default composition should be attractive without media permissions. A procedural pattern passes through transform and color stages into the output, with periodic control nodes driving motion and color. A Delay-based trail can be included if it is stable before launch. Camera and microphone inputs remain optional and activate only after an explicit user action.
 
 ## MVP scope
 
@@ -66,6 +66,7 @@ The default composition should be attractive without media permissions. A proced
 
 ### Implemented frame nodes
 
+- Video Input with explicit opt-in camera access, facing preference, fit, and mirror controls.
 - Flow Field and Cells procedural producers.
 - Warp and two-input Blend processors.
 - Trails with internally managed previous-frame state.
@@ -83,7 +84,7 @@ Every animatable numeric visual parameter uses the same typed control-port mecha
 
 ### Deferred node breadth
 
-- Solid color, uploaded image, camera, blur, and general transform processors.
+- Solid color, uploaded image, blur, and general transform processors.
 - Constant, arithmetic, range mapping, smoothing, and sample-and-hold controls.
 - A general-purpose Delay node beyond the retained state inside Trails.
 
@@ -198,7 +199,7 @@ Judge the MVP by graph fluency, modulation, visual quality, and reliability. Add
 ### Phase 1: durable browser instrument
 
 - Add texture pooling, better GPU timing, adaptive resolution, and offscreen-worker evaluation.
-- Add camera, microphone analysis, media upload, and recording.
+- Harden camera and microphone inputs; add media upload and recording.
 - Add richer control mapping, events, presets, and reusable modules.
 - Expand browser and accessibility testing.
 

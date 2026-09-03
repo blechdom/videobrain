@@ -93,6 +93,48 @@ void main() {
 }
 `;
 
+const videoInput = `#version 300 es
+precision highp float;
+
+in vec2 vUv;
+out vec4 outColor;
+
+uniform sampler2D uSource;
+uniform vec2 uSourceSize;
+uniform vec2 uResolution;
+uniform float uFit;
+uniform float uMirror;
+
+void main() {
+  vec2 uv = vUv;
+  float sourceAspect = uSourceSize.x / max(uSourceSize.y, 1.0);
+  float outputAspect = uResolution.x / max(uResolution.y, 1.0);
+
+  if (uFit < 0.5) {
+    if (sourceAspect > outputAspect) {
+      uv.x = (uv.x - 0.5) * outputAspect / sourceAspect + 0.5;
+    } else {
+      uv.y = (uv.y - 0.5) * sourceAspect / outputAspect + 0.5;
+    }
+  } else if (uFit < 1.5) {
+    if (sourceAspect > outputAspect) {
+      uv.y = (uv.y - 0.5) * sourceAspect / outputAspect + 0.5;
+    } else {
+      uv.x = (uv.x - 0.5) * outputAspect / sourceAspect + 0.5;
+    }
+  }
+
+  if (uMirror > 0.5) {
+    uv.x = 1.0 - uv.x;
+  }
+  if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) {
+    outColor = vec4(0.0, 0.0, 0.0, 1.0);
+    return;
+  }
+  outColor = texture(uSource, uv);
+}
+`;
+
 const warp = `#version 300 es
 precision highp float;
 
@@ -209,6 +251,7 @@ void main() {
 `;
 
 export const FRAME_FRAGMENT_SHADERS: Partial<Record<NodeKind, string>> = {
+  videoInput,
   plasma,
   cells,
   warp,

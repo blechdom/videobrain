@@ -139,6 +139,49 @@ function modeIndex(mode: string): number {
   }
 }
 
+function videoFitIndex(fit: string): number {
+  switch (fit) {
+    case 'cover':
+      return 0;
+    case 'contain':
+      return 1;
+    case 'stretch':
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+interface VideoFrameSource {
+  readonly readyState: number;
+  readonly videoWidth: number;
+  readonly videoHeight: number;
+}
+
+export function readVideoFrameSize(
+  video: VideoFrameSource,
+  maxDimension = MAX_RENDER_DIMENSION,
+  maxPixels = MAX_RENDER_PIXELS,
+): RenderSize | null {
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+  if (
+    video.readyState < 2 ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width < 1 ||
+    height < 1 ||
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width > maxDimension ||
+    height > maxDimension ||
+    width * height > maxPixels
+  ) {
+    return null;
+  }
+  return { width, height };
+}
+
 export class RendererError extends Error {
   constructor(message: string) {
     super(message);
@@ -158,6 +201,10 @@ export class WebGLRenderer {
   private controlValues = new Map<string, number>();
   private vertexArray: WebGLVertexArrayObject | null = null;
   private blackTexture: WebGLTexture | null = null;
+  private videoTexture: WebGLTexture | null = null;
+  private videoSource: HTMLVideoElement | null = null;
+  private videoSourceWidth = 1;
+  private videoSourceHeight = 1;
   private renderWidth = 1;
   private renderHeight = 1;
   private frameCount = 0;
@@ -237,6 +284,19 @@ export class WebGLRenderer {
     } catch (error) {
       this.errorState = this.asError(error);
       throw this.errorState;
+    }
+  }
+
+  setVideoSource(video: HTMLVideoElement | null): void {
+    this.assertActive();
+    if (this.videoSource === video) {
+      return;
+    }
+    this.videoSource = video;
+    this.videoSourceWidth = 1;
+    this.videoSourceHeight = 1;
+    if (!this.contextLost) {
+      this.resetVideoTexture();
     }
   }
 
@@ -335,6 +395,9 @@ export class WebGLRenderer {
       for (const node of this.plan.controlNodes) {
         this.evaluateControlNode(node, time, audio, safePointer);
       }
+      if (this.plan.frameNodes.some(({ node }) => node.kind === 'videoInput')) {
+        this.uploadVideoFrame();
+      }
       for (const node of this.plan.frameNodes) {
         this.renderFrameNode(node, time);
       }
@@ -374,6 +437,7 @@ export class WebGLRenderer {
       }
     }
     if (!this.contextLost) {
+      this.resetVideoTexture();
       this.clearDisplay();
     }
   }
@@ -395,6 +459,9 @@ export class WebGLRenderer {
       if (this.blackTexture) {
         this.gl.deleteTexture(this.blackTexture);
       }
+      if (this.videoTexture) {
+        this.gl.deleteTexture(this.videoTexture);
+      }
       if (this.vertexArray) {
         this.gl.deleteVertexArray(this.vertexArray);
       }
@@ -403,6 +470,10 @@ export class WebGLRenderer {
     this.outputTextures.clear();
     this.controlValues.clear();
     this.blackTexture = null;
+    this.videoTexture = null;
+    this.videoSource = null;
+    this.videoSourceWidth = 1;
+    this.videoSourceHeight = 1;
     this.vertexArray = null;
     this.plan = null;
     this.disposed = true;
@@ -420,6 +491,9 @@ export class WebGLRenderer {
     this.controlValues.clear();
     this.programs.clear();
     this.blackTexture = null;
+    this.videoTexture = null;
+    this.videoSourceWidth = 1;
+    this.videoSourceHeight = 1;
     this.vertexArray = null;
   };
 
@@ -444,17 +518,22 @@ export class WebGLRenderer {
     gl.disable(gl.BLEND);
     const vertexArray = gl.createVertexArray();
     const blackTexture = gl.createTexture();
-    if (!vertexArray || !blackTexture) {
+    const videoTexture = gl.createTexture();
+    if (!vertexArray || !blackTexture || !videoTexture) {
       if (vertexArray) {
         gl.deleteVertexArray(vertexArray);
       }
       if (blackTexture) {
         gl.deleteTexture(blackTexture);
       }
+      if (videoTexture) {
+        gl.deleteTexture(videoTexture);
+      }
       throw new RendererError('Unable to allocate graphics resources.');
     }
     this.vertexArray = vertexArray;
     this.blackTexture = blackTexture;
+    this.videoTexture = videoTexture;
     gl.bindTexture(gl.TEXTURE_2D, blackTexture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -472,6 +551,72 @@ export class WebGLRenderer {
       new Uint8Array([0, 0, 0, 255]),
     );
     gl.bindTexture(gl.TEXTURE_2D, null);
+    this.resetVideoTexture();
+  }
+
+  private resetVideoTexture(): void {
+    const texture = this.videoTexture;
+    if (!texture) {
+      return;
+    }
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      1,
+      1,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array([0, 0, 0, 255]),
+    );
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    this.videoSourceWidth = 1;
+    this.videoSourceHeight = 1;
+  }
+
+  private uploadVideoFrame(): void {
+    const video = this.videoSource;
+    const texture = this.videoTexture;
+    if (!video || !texture) {
+      return;
+    }
+    const size = readVideoFrameSize(
+      video,
+      this.maxTextureDimension,
+      MAX_RENDER_PIXELS,
+    );
+    if (!size) {
+      return;
+    }
+
+    const gl = this.gl;
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        video,
+      );
+      this.videoSourceWidth = size.width;
+      this.videoSourceHeight = size.height;
+    } catch {
+      // Media readiness can change between inspection and upload. Keep the
+      // previous valid frame and retry on the next render.
+    } finally {
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    }
   }
 
   private assertResourceBudget(graph: CompiledGraph): void {
@@ -719,6 +864,30 @@ export class WebGLRenderer {
     const program = this.beginPass(kind, target);
 
     switch (kind) {
+      case 'videoInput':
+        this.bindTexture(
+          program,
+          'uSource',
+          this.videoTexture ?? this.fallbackTexture(),
+          0,
+        );
+        this.uniform2f(
+          program,
+          'uSourceSize',
+          this.videoSourceWidth,
+          this.videoSourceHeight,
+        );
+        this.uniform1f(
+          program,
+          'uFit',
+          videoFitIndex(this.stringParam(compiledNode, 'fit')),
+        );
+        this.uniform1f(
+          program,
+          'uMirror',
+          this.stringParam(compiledNode, 'mirror') === 'on' ? 1 : 0,
+        );
+        break;
       case 'plasma': {
         const phase = this.controlInput(compiledNode, 'time', time);
         const speed = this.numberParam(compiledNode, 'speed');
@@ -1027,6 +1196,10 @@ export class WebGLRenderer {
     if (texture) {
       return texture;
     }
+    return this.fallbackTexture();
+  }
+
+  private fallbackTexture(): WebGLTexture {
     if (!this.blackTexture) {
       throw new RendererError('The fallback texture is unavailable.');
     }

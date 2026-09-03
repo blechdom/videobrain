@@ -1,6 +1,7 @@
 import {
   AudioWaveform,
   Blend,
+  Camera,
   Clock3,
   Ghost,
   Grid3X3,
@@ -36,6 +37,7 @@ export const OPERATOR_META: Record<NodeKind, OperatorMeta> = {
   oscillator: { accent: '#b8ef66', icon: AudioWaveform, shortLabel: 'LFO' },
   pointer: { accent: '#f2d65f', icon: MousePointer2, shortLabel: 'Pointer' },
   audioLevel: { accent: '#ffbd5f', icon: Mic2, shortLabel: 'Audio' },
+  videoInput: { accent: '#5fffc7', icon: Camera, shortLabel: 'Camera' },
   plasma: { accent: '#65ddff', icon: Sparkles, shortLabel: 'Field' },
   cells: { accent: '#70aaff', icon: Grid3X3, shortLabel: 'Cells' },
   warp: { accent: '#8d9cff', icon: Waves, shortLabel: 'Warp' },

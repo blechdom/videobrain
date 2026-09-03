@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  CircleHelp,
   CircleCheck,
   Download,
   FilePlus2,
@@ -22,11 +23,13 @@ import {
 import type { RenderResult } from './engine';
 import { CommandPalette } from './components/CommandPalette';
 import { GraphEditor } from './components/GraphEditor';
+import { HelpDialog } from './components/HelpDialog';
 import type { OperatorFlowNode } from './components/OperatorNode';
 import { Inspector } from './components/Inspector';
 import { OperatorLibrary } from './components/OperatorLibrary';
 import { PreviewPanel } from './components/PreviewPanel';
 import { useAudioLevel } from './hooks/useAudioLevel';
+import { useVideoInput } from './hooks/useVideoInput';
 import {
   projectStore,
   useGraphDocument,
@@ -74,11 +77,21 @@ function Studio() {
   const exportProject = useProjectStore((state) => state.exportProject);
   const { screenToFlowPosition } = useReactFlow<OperatorFlowNode>();
   const audio = useAudioLevel();
+  const {
+    inputState: videoInputState,
+    errorMessage: videoInputError,
+    facingMode: videoFacingMode,
+    videoElement,
+    videoRef,
+    enableCamera,
+    disableCamera,
+  } = useVideoInput();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toastTimerRef = useRef<number | undefined>(undefined);
   const [runtime, setRuntime] = useState<RenderResult | null>(null);
   const [resetToken, setResetToken] = useState(0);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const notify = useCallback((message: string, tone: 'success' | 'error' = 'success') => {
@@ -111,6 +124,13 @@ function Studio() {
       window.document.removeEventListener('visibilitychange', flushHiddenProject);
     };
   }, []);
+
+  const hasVideoInput = graphDocument.nodes.some((node) => node.kind === 'videoInput');
+  useEffect(() => {
+    if (!hasVideoInput && videoInputState !== 'idle') {
+      disableCamera();
+    }
+  }, [disableCamera, hasVideoInput, videoInputState]);
 
   const placeNode = useCallback(
     (kind: NodeKind, sourceNode?: GraphNode) => {
@@ -190,6 +210,9 @@ function Studio() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (helpOpen) {
+        return;
+      }
       const target = event.target;
       const inForm =
         target instanceof HTMLInputElement ||
@@ -216,7 +239,7 @@ function Studio() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [commandOpen, redo, togglePlaying, undo]);
+  }, [commandOpen, helpOpen, redo, togglePlaying, undo]);
 
   const selectedNode =
     graphDocument.nodes.find((node) => node.id === selectedNodeId) ?? null;
@@ -238,6 +261,10 @@ function Studio() {
         onNew={restoreDemo}
         onImport={() => fileInputRef.current?.click()}
         onExport={downloadProject}
+        onHelp={() => {
+          setCommandOpen(false);
+          setHelpOpen(true);
+        }}
       />
       <input
         ref={fileInputRef}
@@ -248,6 +275,14 @@ function Studio() {
           void loadProjectFile(event.target.files?.[0]);
           event.target.value = '';
         }}
+      />
+      <video
+        ref={videoRef}
+        className="video-input-element"
+        muted
+        autoPlay
+        playsInline
+        aria-hidden="true"
       />
 
       <main className="workspace">
@@ -271,6 +306,8 @@ function Studio() {
             playing={playing}
             resetToken={resetToken}
             audioInputState={audio.inputState}
+            videoInputState={videoInputState}
+            videoSource={videoInputState === 'live' ? videoElement : null}
             meterLevel={audio.meterLevel}
             sampleAudioLevel={audio.sampleLevel}
             onRuntimeUpdate={setRuntime}
@@ -279,6 +316,9 @@ function Studio() {
           <Inspector
             node={selectedNode}
             audioInputState={audio.inputState}
+            videoInputState={videoInputState}
+            videoInputError={videoInputError}
+            videoFacingMode={videoFacingMode}
             onParamChange={setNodeParam}
             onGestureStart={beginGesture}
             onGestureEnd={endGesture}
@@ -286,6 +326,8 @@ function Studio() {
             onDuplicate={(node) => placeNode(node.kind, node)}
             onEnableMicrophone={audio.enableMicrophone}
             onDisableMicrophone={audio.disableMicrophone}
+            onEnableCamera={enableCamera}
+            onDisableCamera={disableCamera}
           />
         </aside>
       </main>
@@ -303,6 +345,7 @@ function Studio() {
           onClose={() => setCommandOpen(false)}
         />
       ) : null}
+      {helpOpen ? <HelpDialog onClose={() => setHelpOpen(false)} /> : null}
       <div className="toast-region" aria-live="polite" aria-atomic="true">
         {toast ? <Toast key={toast.id} toast={toast} /> : null}
       </div>
@@ -323,6 +366,7 @@ interface TopbarProps {
   onNew: () => void;
   onImport: () => void;
   onExport: () => void;
+  onHelp: () => void;
 }
 
 function Topbar({
@@ -338,6 +382,7 @@ function Topbar({
   onNew,
   onImport,
   onExport,
+  onHelp,
 }: TopbarProps) {
   return (
     <header className="topbar">
@@ -407,6 +452,16 @@ function Topbar({
         </button>
         <button type="button" className="primary-button" onClick={onAdd}>
           <Plus size={14} /> Add node
+        </button>
+        <button
+          type="button"
+          className="icon-button help-action"
+          onClick={onHelp}
+          title="Help & about"
+          aria-haspopup="dialog"
+        >
+          <CircleHelp size={15} />
+          <span className="sr-only">Help &amp; about</span>
         </button>
       </div>
     </header>
