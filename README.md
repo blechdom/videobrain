@@ -2,18 +2,18 @@
 
 VideoBrain is a browser-native visual signal studio. It combines a typed node editor, a real-time control graph, and a multipass GPU renderer in one static web application.
 
-The proof of concept opens into a working composition and runs locally without an account, backend, or device permission. Connect signal nodes to visual parameters, rewire frame processors, tune the selected node, and watch the result update live.
+The proof of concept opens into a working composition and runs locally without an account, backend, or device permission. Connect signal nodes to visual parameters, rewire frame processors, tune values directly in the nodes, and watch the result update live.
 
 ## What is included
 
 - Typed `control.f32` and `frame.rgba` connections
 - Demand-rooted graph compilation with cycle rejection
 - Procedural GPU sources, warp, blend, trails, color grading, and display
-- Clock, oscillator, pointer, and opt-in microphone controls
+- Clock, oscillator, pointer, editable XY pad, and opt-in microphone controls
 - Opt-in live camera frames with facing, fit, and mirror controls
 - Live WebGL2 output with play, pause, reset, and fullscreen modes
 - Node creation, connection, deletion, movement, and parameter editing
-- Inline node sliders and selects synchronized with the inspector
+- Always-visible inline sliders, selects, and XY controls synchronized with the inspector
 - Undo and redo for project edits
 - Versioned local autosave plus JSON import and export
 - Transactional import validation with bounded graph and GPU resource budgets

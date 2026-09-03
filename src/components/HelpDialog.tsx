@@ -23,6 +23,11 @@ const recipes = [
     note: 'Move over the output to modulate distortion directly.',
   },
   {
+    title: 'Two-axis color control',
+    path: 'XY Pad X → Color Grade Hue; XY Pad Y → Color Grade Exposure',
+    note: 'Drag inside the XY Pad node to shape two visual values at once.',
+  },
+  {
     title: 'Audio-reactive trails',
     path: 'Audio Level → Trails Feedback; visual source → Trails → Display',
     note: 'Select Audio Level and explicitly enable the microphone when ready.',
@@ -146,7 +151,14 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
               <ol>
                 <li>Press <kbd>/</kbd> or choose <strong>Add node</strong>.</li>
                 <li>Drag from an output dot to a matching input dot.</li>
-                <li>Select a node to edit it in the inspector.</li>
+                <li>
+                  Tune every editable value directly inside its node. Select the
+                  node when you also want its spacious Inspector.
+                </li>
+                <li>
+                  Drag inside <strong>XY Pad</strong> to change its X and Y outputs
+                  together.
+                </li>
                 <li>End a visual path at <strong>Display</strong> to see it live.</li>
               </ol>
             </div>
@@ -206,7 +218,7 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
           </section>
 
           <section id="help-recipes" className="help-section">
-            <h2>Four patches to try</h2>
+            <h2>Five patches to try</h2>
             <div className="help-recipe-list">
               {recipes.map((recipe) => (
                 <article key={recipe.title}>
@@ -221,12 +233,12 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
           <section id="help-io" className="help-section">
             <h2>Inputs, outputs, and device access</h2>
             <p>
-              The current release supports pointer input plus opt-in camera and
-              microphone access. Browser-native MIDI, gamepad, files, recording,
-              and peer streaming are planned. OSC, lighting networks, specialist depth
-              sensors, and native video-sharing protocols generally need a small
-              local bridge because browsers cannot open arbitrary UDP sockets or
-              native texture-sharing handles.
+              The current release supports the built-in XY pad and pointer input,
+              plus opt-in camera and microphone access. Browser-native MIDI,
+              gamepad, files, recording, and peer streaming are planned. OSC,
+              lighting networks, specialist depth sensors, and native video-sharing
+              protocols generally need a small local bridge because browsers cannot
+              open arbitrary UDP sockets or native texture-sharing handles.
             </p>
             <p className="help-note">
               Camera and microphone access always require a secure page, an explicit

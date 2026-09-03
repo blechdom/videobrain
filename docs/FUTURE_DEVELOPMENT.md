@@ -45,6 +45,7 @@ The app currently has a typed graph, demand-rooted execution plan, WebGL2 multip
 | Control | ✅ Time | Monotonic playback time with speed and offset |
 | Control | ✅ Oscillator | Sine, triangle, saw, and square modulation with frequency, phase, amplitude, and offset |
 | Control | ✅ Pointer | Normalized pointer X and Y from the output stage |
+| Control | ✅ XY Pad | Editable normalized X and Y outputs with direct two-axis control inside the node |
 | Control | ✅ Audio Level | Normalized energy with gain/floor controls; deterministic fallback until microphone access is explicitly enabled |
 | Frame input | ✅ Video Input | Opt-in live camera frames with front/rear preference, cover/contain/stretch fit, and mirroring |
 | Frame source | ✅ Flow Field | Procedural animated color field with time and energy modulation |
@@ -61,6 +62,8 @@ The app currently has a typed graph, demand-rooted execution plan, WebGL2 multip
 - ✅ Pan, zoom, select, move, connect, rewire, disconnect, duplicate, and delete.
 - ✅ Typed `control.f32` and `frame.rgba` ports.
 - ✅ Parameter inspector with gesture-aware undo history.
+- ✅ All adjustable parameters remain visible as compact controls inside their nodes.
+- ✅ Direct two-axis XY control with independently connectable outputs, native axis sliders, keyboard interaction, and live axis values.
 - ✅ Play, pause, deterministic reset, FPS, and GPU-pass diagnostics.
 - ✅ Explicit microphone and camera permission controls.
 - ✅ Fullscreen output.
@@ -99,7 +102,7 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 
 | Priority | Node/module | Purpose |
 | --- | --- | --- |
-| P0 | ✅ Time, Oscillator, Pointer, Audio Level | Existing modulation baseline |
+| P0 | ✅ Time, Oscillator, Pointer, XY Pad, Audio Level | Existing modulation baseline |
 | P1 | 🚧 Constant | Reusable numeric value with named output |
 | P1 | 🚧 Math | Add, subtract, multiply, divide, modulo, power, min, and max |
 | P1 | 🚧 Map Range | Remap, clamp, wrap, fold, and optionally ease a range |
@@ -424,43 +427,49 @@ Arrows show the primary signal path. A semicolon separates modulation. Nodes not
 
    Introduces direct interaction without a permission prompt.
 
-4. **Camera Dream — available now**
+4. **Two-axis Color Ride — available now**
+
+   `Flow Field → Color Grade → Display; XY Pad.X → Color Grade.Hue; XY Pad.Y → Color Grade.Exposure`
+
+   Drag inside one node to perform two independently patchable values at once.
+
+5. **Camera Dream — available now**
 
    `Video Input → Warp → Trails → Color Grade → Display; Oscillator → Warp.Amount`
 
    Demonstrates explicit camera start, live texture upload, feedback, and mirroring.
 
-5. **Mic Pulse — available now**
+6. **Mic Pulse — available now**
 
    `Flow Field → Color Grade → Display; Audio Level → Flow Field.Energy`
 
    Works with a demo signal first; enable the microphone only when desired.
 
-6. **Two Worlds — available now**
+7. **Two Worlds — available now**
 
    `Flow Field → Blend.A; Cells → Blend.B → Display; Oscillator → Blend.Mix`
 
    Compare blend modes and slow automatic crossfades.
 
-7. **Poster Maker — P1**
+8. **Poster Maker — P1**
 
    `Gradient 🚧 → Text 🚧 → Composite 🚧 → Color Grade → Display`
 
    A still-first exercise suitable for screenshots.
 
-8. **Feedback Basics — available now**
+9. **Feedback Basics — available now**
 
    `Cells → Warp → Trails → Display; Oscillator → Trails.Feedback`
 
    Explains why retained state differs from a normal graph cycle.
 
-9. **Shape Rhythm — P1**
+10. **Shape Rhythm — P1**
 
    `Shape 🚧 → Transform 2D 🚧 → Display; Oscillator → Transform.Rotate`
 
    Covers pivots and mapped modulation.
 
-10. **Image Remix — P1**
+11. **Image Remix — P1**
 
     `Image File 🚧 → Kaleidoscope 🚧 → Color Grade → Display`
 

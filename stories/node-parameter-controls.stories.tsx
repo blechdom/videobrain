@@ -89,6 +89,21 @@ export const MixedParameters: Story = {
   },
 };
 
+export const TwoAxisPad: Story = {
+  args: {
+    nodeId: 'xy-pad-story',
+    definition: getOperatorDefinition('xyPad'),
+    params: getDefaultParams('xyPad'),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Drag anywhere in the pad to edit X and Y together, or use the native axis sliders for precise independent changes. The pad supports arrow keys, with Shift for coarser steps.',
+      },
+    },
+  },
+};
+
 export const EnumeratedParameters: Story = {
   args: {
     nodeId: 'camera-story',

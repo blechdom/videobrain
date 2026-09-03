@@ -123,13 +123,53 @@ test('boots a live GPU composition without permissions', async ({ page }) => {
     .toBeGreaterThan(1);
 });
 
+test('keeps inline values visible and edits the XY pad as one undo gesture', async ({
+  page,
+}) => {
+  const timeNode = page.locator('article[aria-label="Time node"]');
+  await expect(timeNode).not.toHaveClass(/selected/);
+  await expect(
+    timeNode.getByRole('slider', { name: 'Time Speed' }),
+  ).toBeVisible();
+  await expect(
+    timeNode.getByRole('slider', { name: 'Time Offset' }),
+  ).toBeVisible();
+
+  const xyNode = page.locator('article[aria-label="XY Pad node"]');
+  const pad = xyNode.getByRole('button', { name: 'XY Pad Position' });
+  await expect(pad).toBeVisible();
+  await expect(xyNode).toContainText('X 0.50 · Y 0.50');
+  const bounds = await pad.boundingBox();
+  expect(bounds).not.toBeNull();
+
+  await page.mouse.move(
+    bounds!.x + bounds!.width / 2,
+    bounds!.y + bounds!.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    bounds!.x + bounds!.width * 0.8,
+    bounds!.y + bounds!.height * 0.2,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+
+  await expect(xyNode).toContainText('X 0.80 · Y 0.80');
+  await expect(
+    page.getByRole('complementary', { name: 'XY Pad inspector' }),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(xyNode).toContainText('X 0.50 · Y 0.50');
+});
+
 test('starts camera input only after opt-in and renders its live frame', async ({
   page,
 }) => {
   await expect.poll(() => cameraRequestCount(page)).toBe(0);
 
   await page.getByTitle('Add Video Input').click();
-  await expect(page.getByText(/12 nodes/).first()).toBeVisible();
+  await expect(page.getByText(/13 nodes/).first()).toBeVisible();
   const inspector = page.getByRole('complementary', {
     name: 'Video Input inspector',
   });
@@ -166,7 +206,7 @@ test('starts camera input only after opt-in and renders its live frame', async (
   await expect(inspector.getByText('Camera live', { exact: true })).toBeVisible();
 
   const links = page.locator('[data-testid^="rf__edge-"]');
-  await expect(links).toHaveCount(13);
+  await expect(links).toHaveCount(15);
   const initialLinkCount = await links.count();
   const previousDisplayLink = page.getByTestId('rf__edge-grade-display');
   await selectLink(page, previousDisplayLink);
@@ -235,7 +275,7 @@ test('opens in-app help with current nodes, I/O guidance, and contribution link'
 
 test('adds, inspects, edits, and undoes a node', async ({ page }) => {
   await page.getByTitle('Add Flow Field').click();
-  await expect(page.getByText(/12 nodes/).first()).toBeVisible();
+  await expect(page.getByText(/13 nodes/).first()).toBeVisible();
 
   const addedNode = page.locator('article[aria-label="Flow Field node"]').last();
   await expect(page.getByRole('complementary', { name: 'Flow Field inspector' })).toBeVisible();
@@ -264,7 +304,7 @@ test('adds, inspects, edits, and undoes a node', async ({ page }) => {
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(inlineScale).toHaveValue(String(before));
   await page.getByRole('button', { name: 'Undo' }).click();
-  await expect(page.getByText(/11 nodes/).first()).toBeVisible();
+  await expect(page.getByText(/12 nodes/).first()).toBeVisible();
 });
 
 test('opens searchable node creation from the keyboard', async ({ page }) => {
@@ -358,7 +398,7 @@ test('explains why an incompatible link drop was rejected', async ({ page }) => 
 test('autosaves project changes across reloads', async ({ page }) => {
   await page.getByTitle('Add Audio Level').click();
   await page.reload();
-  await expect(page.getByText(/12 nodes/).first()).toBeVisible();
+  await expect(page.getByText(/13 nodes/).first()).toBeVisible();
   await expect(page.getByText('Graph healthy')).toBeVisible();
   await expect(page.getByText('Signal Garden / saved')).toBeVisible();
 });

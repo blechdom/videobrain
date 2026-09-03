@@ -800,6 +800,10 @@ export class WebGLRenderer {
         this.setControl(node.id, 'x', pointer.x);
         this.setControl(node.id, 'y', pointer.y);
         return;
+      case 'xyPad':
+        this.setControl(node.id, 'x', this.numberParam(compiledNode, 'x'));
+        this.setControl(node.id, 'y', this.numberParam(compiledNode, 'y'));
+        return;
       case 'audioLevel': {
         const gain = this.numberParam(compiledNode, 'gain');
         const floor = this.numberParam(compiledNode, 'floor');

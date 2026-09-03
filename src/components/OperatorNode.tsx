@@ -111,10 +111,12 @@ function OperatorNodeView({ id, data, selected, isConnectable }: NodeProps<Opera
         onSelect={data.onSelect}
       />
 
-      <footer className="node-param-summary">
-        <span>{definition.kind}</span>
-        <strong>{summarizeParams(data.params)}</strong>
-      </footer>
+      {Object.keys(definition.params).length === 0 ? (
+        <footer className="node-param-summary">
+          <span>{definition.kind}</span>
+          <strong>{summarizeParams(data.params)}</strong>
+        </footer>
+      ) : null}
     </article>
   );
 }

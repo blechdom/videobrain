@@ -143,6 +143,20 @@ export const SelectedNode: Story = {
   },
 };
 
+export const InteractiveXYPad: Story = {
+  args: {
+    kinds: ['xyPad'],
+    compact: true,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'The node keeps its two-axis performance surface live. Drag it or focus it and use the arrow keys, then connect X and Y independently.',
+      },
+    },
+  },
+};
+
 export const InactiveNode: Story = {
   args: {
     kinds: ['warp'],

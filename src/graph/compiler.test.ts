@@ -56,10 +56,11 @@ describe('graph compiler', () => {
   it('compiles the permission-free default graph end to end', () => {
     const compiled = compileGraph(createDefaultGraph());
 
-    expect(compiled.nodes).toHaveLength(11);
+    expect(compiled.nodes).toHaveLength(12);
     expect(compiled.controlNodes.map(({ node: item }) => item.kind)).toEqual([
       'audioLevel',
       'time',
+      'xyPad',
       'pointer',
       'oscillator',
     ]);
@@ -77,6 +78,44 @@ describe('graph compiler', () => {
     expect(compiled.nodes.some(({ node: item }) => item.kind === 'audioLevel')).toBe(
       true,
     );
+    expect(compiled.document.nodes).toHaveLength(12);
+    expect(compiled.reachableNodeIds.has('pointer')).toBe(true);
+  });
+
+  it('binds both XY pad outputs to independent control inputs', () => {
+    const compiled = compileGraph(
+      graph(
+        [
+          node('xyPad', 'pad'),
+          node('plasma', 'source'),
+          node('colorGrade', 'grade'),
+          node('display', 'display'),
+        ],
+        [
+          edge('source-grade', 'source', 'frame', 'grade', 'source'),
+          edge('pad-hue', 'pad', 'x', 'grade', 'hue'),
+          edge('pad-exposure', 'pad', 'y', 'grade', 'exposure'),
+          edge('grade-display', 'grade', 'frame', 'display', 'source'),
+        ],
+      ),
+    );
+
+    expect(compiled.controlNodes.map(({ node: item }) => item.id)).toEqual([
+      'pad',
+    ]);
+    const grade = compiled.nodes.find(({ node: item }) => item.id === 'grade');
+    expect(grade?.inputs.hue).toMatchObject({
+      edgeId: 'pad-hue',
+      sourceNodeId: 'pad',
+      sourcePortId: 'x',
+      type: 'control.f32',
+    });
+    expect(grade?.inputs.exposure).toMatchObject({
+      edgeId: 'pad-exposure',
+      sourceNodeId: 'pad',
+      sourcePortId: 'y',
+      type: 'control.f32',
+    });
   });
 
   it('prunes nodes that cannot reach a display', () => {

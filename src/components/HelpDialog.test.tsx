@@ -13,6 +13,10 @@ describe('HelpDialog', () => {
     expect(screen.getByText('Two signal types, one graph')).toBeVisible();
     expect(screen.getByText('Nodes available now')).toBeVisible();
     expect(screen.getByText('Flow Field')).toBeVisible();
+    expect(
+      screen.getByText('A hands-on pair of normalized control signals.'),
+    ).toBeVisible();
+    expect(screen.getByText('Two-axis color control')).toBeVisible();
     expect(screen.getByText('Audio-reactive trails')).toBeVisible();
     expect(screen.getByRole('link', { name: /Full roadmap/ })).toHaveAttribute(
       'href',

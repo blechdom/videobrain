@@ -4,6 +4,7 @@ export const NODE_KINDS = [
   'time',
   'oscillator',
   'pointer',
+  'xyPad',
   'audioLevel',
   'videoInput',
   'plasma',
@@ -85,6 +86,13 @@ export type OperatorParamDefinition =
   | NumberParamDefinition
   | SelectParamDefinition;
 
+export interface XYParameterLayout {
+  type: 'xy';
+  label: string;
+  xParamId: string;
+  yParamId: string;
+}
+
 export interface OperatorDefinition {
   kind: NodeKind;
   title: string;
@@ -93,4 +101,5 @@ export interface OperatorDefinition {
   inputs: readonly PortDefinition[];
   outputs: readonly PortDefinition[];
   params: Readonly<Record<string, OperatorParamDefinition>>;
+  parameterLayout?: XYParameterLayout;
 }

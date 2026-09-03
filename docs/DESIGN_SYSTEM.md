@@ -36,9 +36,11 @@ Inline controls must:
 4. Group a continuous pointer or keyboard edit into one undo gesture.
 5. Inherit the node accent for tracks, focus, and value readouts.
 
-The Inspector remains the spacious editing and explanatory surface. Selecting
-a parameterized node reveals its inline controls for immediate performance
-access without leaving the patch.
+Every editable control remains visible on its node, while the Inspector provides
+the most spacious editing and explanatory surface. Explicit two-axis operators can
+render a direct manipulation pad with labeled keyboard interaction, live X/Y
+readouts, and native axis sliders; ordinary parameter pairs must not be guessed into
+a two-axis control.
 
 ## Story organization
 

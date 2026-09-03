@@ -335,8 +335,8 @@ export function GraphEditor({
         connectionLineStyle={{ stroke: '#d8ff5f', strokeWidth: 2 }}
         defaultEdgeOptions={{ type: 'smoothstep' }}
         fitView
-        fitViewOptions={{ padding: 0.16, maxZoom: 1.05 }}
-        minZoom={0.2}
+        fitViewOptions={{ padding: 0.12, minZoom: 0.45, maxZoom: 1.05 }}
+        minZoom={0.3}
         maxZoom={1.8}
         snapToGrid
         snapGrid={[12, 12]}

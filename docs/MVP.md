@@ -42,7 +42,7 @@ The application opens directly into a working project. The user can:
 2. pan, zoom, select, and move nodes;
 3. add a node from a searchable palette;
 4. connect compatible ports and receive clear feedback for invalid connections;
-5. edit a selected node in the inspector;
+5. edit a node from its visible inline controls or the selected-node inspector;
 6. connect a control output to a visual parameter and see it animate;
 7. play, pause, reset, and enter a focused output view;
 8. undo and redo graph edits;
@@ -58,7 +58,7 @@ The default composition should be attractive without media permissions. A proced
 - Infinite graph canvas with pan and zoom.
 - Select, move, connect, disconnect, create, duplicate, and delete.
 - Searchable node palette.
-- Custom node cards with category, name, typed ports, reachability state, and compact value summary.
+- Custom node cards with category, name, typed ports, reachability state, and always-visible parameter controls.
 - Inspector with parameter sliders and operator details.
 - Distinct visual treatment for `frame` and `control` connections.
 - Toolbar for transport, undo, redo, reset project, import, export, and focused output.
@@ -78,6 +78,7 @@ The default composition should be attractive without media permissions. A proced
 - Time.
 - Oscillator with sine, triangle, saw, and square waveforms.
 - Pointer position.
+- XY Pad with normalized, independently connectable X and Y values.
 - Audio Level with deterministic demo input and explicit opt-in microphone analysis.
 
 Every animatable numeric visual parameter uses the same typed control-port mechanism. The graph does not rely on node-specific animation wiring.
@@ -131,7 +132,7 @@ The initial target is a current desktop browser on an integrated or discrete GPU
 | Output resolution | Responsive canvas, capped to 1.5× device pixel ratio |
 | Visual rate | Smooth 60 Hz where hardware permits; no correctness dependency on 60 Hz |
 | UI response | Parameter changes visible by the next rendered frame |
-| Default graph | 11 nodes and 7 GPU passes |
+| Default graph | 12 nodes and 7 GPU passes |
 | Startup | Working default output without a network request after assets load |
 | Persistence | Autosave without visible frame hitching |
 

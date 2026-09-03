@@ -89,6 +89,27 @@ const definitions = [
     params: {},
   },
   {
+    kind: 'xyPad',
+    title: 'XY Pad',
+    summary: 'A hands-on pair of normalized control signals.',
+    domain: 'control',
+    inputs: [],
+    outputs: [
+      port('x', 'X', 'control.f32'),
+      port('y', 'Y', 'control.f32'),
+    ],
+    params: {
+      x: numberParam('X', 0.5, 0, 1, 0.01),
+      y: numberParam('Y', 0.5, 0, 1, 0.01),
+    },
+    parameterLayout: {
+      type: 'xy',
+      label: 'Position',
+      xParamId: 'x',
+      yParamId: 'y',
+    },
+  },
+  {
     kind: 'audioLevel',
     title: 'Audio Level',
     summary: 'A normalized audio-energy control signal.',

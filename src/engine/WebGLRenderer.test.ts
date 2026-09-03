@@ -18,6 +18,7 @@ interface FakeWebGLContext {
   deleteTexture: Mock;
   pixelStorei: Mock;
   texImage2D: Mock;
+  uniform1f: Mock;
 }
 
 function createFakeWebGLContext(): FakeWebGLContext {
@@ -26,6 +27,7 @@ function createFakeWebGLContext(): FakeWebGLContext {
   const deleteTexture = vi.fn();
   const pixelStorei = vi.fn();
   const texImage2D = vi.fn();
+  const uniform1f = vi.fn();
   const gl = {
     DEPTH_TEST: 0x0b71,
     CULL_FACE: 0x0b44,
@@ -85,14 +87,16 @@ function createFakeWebGLContext(): FakeWebGLContext {
     getProgramInfoLog: vi.fn(() => null),
     deleteProgram: vi.fn(),
     useProgram: vi.fn(),
-    getUniformLocation: vi.fn(resource),
-    uniform1f: vi.fn(),
+    getUniformLocation: vi.fn(
+      (_program: WebGLProgram, name: string) => ({ name }),
+    ),
+    uniform1f,
     uniform1i: vi.fn(),
     uniform2f: vi.fn(),
     activeTexture: vi.fn(),
     drawArrays: vi.fn(),
   } as unknown as WebGL2RenderingContext;
-  return { gl, deleteTexture, pixelStorei, texImage2D };
+  return { gl, deleteTexture, pixelStorei, texImage2D, uniform1f };
 }
 
 function createVideoGraph(): GraphDocument {
@@ -112,6 +116,40 @@ function createVideoGraph(): GraphDocument {
   };
 }
 
+function createXYControlGraph(): GraphDocument {
+  return {
+    schemaVersion: GRAPH_SCHEMA_VERSION,
+    nodes: [
+      createGraphNode('xyPad', { x: 0, y: 0 }, { x: 0.23, y: 0.77 }, 'pad'),
+      createGraphNode('plasma', { x: 250, y: 0 }, {}, 'source'),
+      createGraphNode('colorGrade', { x: 500, y: 0 }, {}, 'grade'),
+      createGraphNode('display', { x: 750, y: 0 }, {}, 'display'),
+    ],
+    edges: [
+      {
+        id: 'source-grade',
+        source: { nodeId: 'source', portId: 'frame' },
+        target: { nodeId: 'grade', portId: 'source' },
+      },
+      {
+        id: 'pad-grade-hue',
+        source: { nodeId: 'pad', portId: 'x' },
+        target: { nodeId: 'grade', portId: 'hue' },
+      },
+      {
+        id: 'pad-grade-exposure',
+        source: { nodeId: 'pad', portId: 'y' },
+        target: { nodeId: 'grade', portId: 'exposure' },
+      },
+      {
+        id: 'grade-display',
+        source: { nodeId: 'grade', portId: 'frame' },
+        target: { nodeId: 'display', portId: 'source' },
+      },
+    ],
+  };
+}
+
 function createRendererHarness(): {
   canvas: HTMLCanvasElement;
   gl: WebGL2RenderingContext;
@@ -119,9 +157,10 @@ function createRendererHarness(): {
   pixelStorei: Mock;
   renderer: WebGLRenderer;
   texImage2D: Mock;
+  uniform1f: Mock;
 } {
   const canvas = document.createElement('canvas');
-  const { gl, deleteTexture, pixelStorei, texImage2D } =
+  const { gl, deleteTexture, pixelStorei, texImage2D, uniform1f } =
     createFakeWebGLContext();
   Object.defineProperty(canvas, 'getContext', {
     configurable: true,
@@ -133,7 +172,15 @@ function createRendererHarness(): {
     pixelRatio: 1,
   });
   renderer.setGraph(createVideoGraph());
-  return { canvas, gl, deleteTexture, pixelStorei, renderer, texImage2D };
+  return {
+    canvas,
+    gl,
+    deleteTexture,
+    pixelStorei,
+    renderer,
+    texImage2D,
+    uniform1f,
+  };
 }
 
 describe('renderer size constraints', () => {
@@ -173,6 +220,24 @@ describe('renderer size constraints', () => {
       constrainRenderSize(Number.NaN, Number.POSITIVE_INFINITY, Number.NaN),
     ).toEqual({ width: 1, height: 1 });
     expect(constrainRenderSize(-10, 0, 1)).toEqual({ width: 1, height: 1 });
+  });
+});
+
+describe('control-node evaluation', () => {
+  it('routes both XY Pad parameters through their control outputs', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    renderer.setGraph(createXYControlGraph());
+
+    expect(renderer.render(0)).toMatchObject({ rendered: true, passCount: 3 });
+    const wroteUniform = (name: string, value: number) =>
+      uniform1f.mock.calls.some(
+        ([location, writtenValue]) =>
+          (location as unknown as { name?: string } | null)?.name === name &&
+          writtenValue === value,
+      );
+    expect(wroteUniform('uHue', 0.23)).toBe(true);
+    expect(wroteUniform('uExposure', 0.77)).toBe(true);
+    renderer.dispose();
   });
 });
 

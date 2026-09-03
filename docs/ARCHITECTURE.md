@@ -9,7 +9,7 @@ VideoBrain is a browser-native environment for building live visual systems from
 The first release focuses on two cooperating graphs:
 
 - a GPU-backed frame graph for generating and processing images;
-- a CPU-backed control graph for time, oscillation, pointer/audio input, and parameter modulation, alongside camera frames in the GPU frame graph.
+- a CPU-backed control graph for time, oscillation, editable XY values, pointer/audio input, and parameter modulation, alongside camera frames in the GPU frame graph.
 
 The architecture deliberately separates the editor, the persistent project, and the real-time runtime. This lets the product change its renderer, move work to workers, add collaboration, or expose an automation API without replacing the graph editor.
 
@@ -170,7 +170,7 @@ A renderer interface isolates graph semantics from WebGL2 details. A future WebG
 
 ## Control path
 
-The CPU control runtime evaluates small values rather than image-sized buffers. POC control nodes include a monotonic clock, periodic waves, pointer position, and optional media level analysis. Constants, arithmetic, range mapping, and smoothing are future node additions.
+The CPU control runtime evaluates small values rather than image-sized buffers. POC control nodes include a monotonic clock, periodic waves, an editable normalized XY source, pointer position, and optional media level analysis. Constants, arithmetic, range mapping, and smoothing are future node additions.
 
 Control evaluation follows the same reachability and revision rules as the frame graph. A control chain runs only when it contributes to an exposed parameter or output. Non-finite values are contained at the node boundary and reported as diagnostics rather than allowed to poison the GPU pass.
 

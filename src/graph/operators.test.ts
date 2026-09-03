@@ -72,4 +72,40 @@ describe('operator registry', () => {
       mirror: 'on',
     });
   });
+
+  it('defines the XY pad as two normalized editable control outputs', () => {
+    const definition = OPERATOR_REGISTRY.xyPad;
+
+    expect(definition.domain).toBe('control');
+    expect(definition.inputs).toEqual([]);
+    expect(definition.outputs).toEqual([
+      { id: 'x', label: 'X', type: 'control.f32', optional: false },
+      { id: 'y', label: 'Y', type: 'control.f32', optional: false },
+    ]);
+    expect(definition.params).toEqual({
+      x: {
+        type: 'number',
+        label: 'X',
+        defaultValue: 0.5,
+        min: 0,
+        max: 1,
+        step: 0.01,
+      },
+      y: {
+        type: 'number',
+        label: 'Y',
+        defaultValue: 0.5,
+        min: 0,
+        max: 1,
+        step: 0.01,
+      },
+    });
+    expect(definition.parameterLayout).toEqual({
+      type: 'xy',
+      label: 'Position',
+      xParamId: 'x',
+      yParamId: 'y',
+    });
+    expect(getDefaultParams('xyPad')).toEqual({ x: 0.5, y: 0.5 });
+  });
 });
