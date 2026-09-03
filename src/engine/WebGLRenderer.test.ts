@@ -10,11 +10,13 @@ import {
 import {
   WebGLRenderer,
   constrainRenderSize,
+  readImageFrameSize,
   readVideoFrameSize,
 } from './WebGLRenderer';
 
 interface FakeWebGLContext {
   gl: WebGL2RenderingContext;
+  createTexture: Mock;
   deleteTexture: Mock;
   pixelStorei: Mock;
   texImage2D: Mock;
@@ -25,6 +27,7 @@ function createFakeWebGLContext(): FakeWebGLContext {
   let resourceId = 0;
   const resource = () => ({ id: (resourceId += 1) });
   const deleteTexture = vi.fn();
+  const createTexture = vi.fn(resource);
   const pixelStorei = vi.fn();
   const texImage2D = vi.fn();
   const uniform1f = vi.fn();
@@ -59,7 +62,7 @@ function createFakeWebGLContext(): FakeWebGLContext {
     createVertexArray: vi.fn(resource),
     deleteVertexArray: vi.fn(),
     bindVertexArray: vi.fn(),
-    createTexture: vi.fn(resource),
+    createTexture,
     deleteTexture,
     bindTexture: vi.fn(),
     texParameteri: vi.fn(),
@@ -96,7 +99,14 @@ function createFakeWebGLContext(): FakeWebGLContext {
     activeTexture: vi.fn(),
     drawArrays: vi.fn(),
   } as unknown as WebGL2RenderingContext;
-  return { gl, deleteTexture, pixelStorei, texImage2D, uniform1f };
+  return {
+    gl,
+    createTexture,
+    deleteTexture,
+    pixelStorei,
+    texImage2D,
+    uniform1f,
+  };
 }
 
 function createVideoGraph(): GraphDocument {
@@ -150,8 +160,148 @@ function createXYControlGraph(): GraphDocument {
   };
 }
 
+function createBeatClockGraph(): GraphDocument {
+  return {
+    schemaVersion: GRAPH_SCHEMA_VERSION,
+    nodes: [
+      createGraphNode('beatClock', { x: 0, y: 0 }, {}, 'beat'),
+      createGraphNode('plasma', { x: 250, y: 0 }, {}, 'source'),
+      createGraphNode('colorGrade', { x: 500, y: 0 }, {}, 'grade'),
+      createGraphNode('display', { x: 750, y: 0 }, {}, 'display'),
+    ],
+    edges: [
+      {
+        id: 'source-grade',
+        source: { nodeId: 'source', portId: 'frame' },
+        target: { nodeId: 'grade', portId: 'source' },
+      },
+      {
+        id: 'beat-grade-hue',
+        source: { nodeId: 'beat', portId: 'phase' },
+        target: { nodeId: 'grade', portId: 'hue' },
+      },
+      {
+        id: 'beat-grade-exposure',
+        source: { nodeId: 'beat', portId: 'beat' },
+        target: { nodeId: 'grade', portId: 'exposure' },
+      },
+      {
+        id: 'bar-grade-saturation',
+        source: { nodeId: 'beat', portId: 'bar' },
+        target: { nodeId: 'grade', portId: 'saturation' },
+      },
+      {
+        id: 'grade-display',
+        source: { nodeId: 'grade', portId: 'frame' },
+        target: { nodeId: 'display', portId: 'source' },
+      },
+    ],
+  };
+}
+
+function createPointerControlGraph(): GraphDocument {
+  return {
+    schemaVersion: GRAPH_SCHEMA_VERSION,
+    nodes: [
+      createGraphNode('pointer', { x: 0, y: 0 }, {}, 'pointer'),
+      createGraphNode('plasma', { x: 250, y: 0 }, {}, 'source'),
+      createGraphNode('warp', { x: 500, y: 0 }, {}, 'warp'),
+      createGraphNode('colorGrade', { x: 750, y: 0 }, {}, 'grade'),
+      createGraphNode('display', { x: 1_000, y: 0 }, {}, 'display'),
+    ],
+    edges: [
+      {
+        id: 'pointer-source-energy',
+        source: { nodeId: 'pointer', portId: 'x' },
+        target: { nodeId: 'source', portId: 'energy' },
+      },
+      {
+        id: 'source-warp',
+        source: { nodeId: 'source', portId: 'frame' },
+        target: { nodeId: 'warp', portId: 'source' },
+      },
+      {
+        id: 'pointer-warp-amount',
+        source: { nodeId: 'pointer', portId: 'y' },
+        target: { nodeId: 'warp', portId: 'amount' },
+      },
+      {
+        id: 'warp-grade',
+        source: { nodeId: 'warp', portId: 'frame' },
+        target: { nodeId: 'grade', portId: 'source' },
+      },
+      {
+        id: 'pointer-grade-hue',
+        source: { nodeId: 'pointer', portId: 'down' },
+        target: { nodeId: 'grade', portId: 'hue' },
+      },
+      {
+        id: 'pointer-grade-exposure',
+        source: { nodeId: 'pointer', portId: 'press' },
+        target: { nodeId: 'grade', portId: 'exposure' },
+      },
+      {
+        id: 'pointer-grade-saturation',
+        source: { nodeId: 'pointer', portId: 'release' },
+        target: { nodeId: 'grade', portId: 'saturation' },
+      },
+      {
+        id: 'grade-display',
+        source: { nodeId: 'grade', portId: 'frame' },
+        target: { nodeId: 'display', portId: 'source' },
+      },
+    ],
+  };
+}
+
+function createVideoModelGraph(): GraphDocument {
+  return {
+    schemaVersion: GRAPH_SCHEMA_VERSION,
+    nodes: [
+      createGraphNode('aiPrompt', { x: 0, y: 0 }, {}, 'prompt'),
+      createGraphNode('videoModel', { x: 250, y: 0 }, {}, 'model'),
+      createGraphNode('display', { x: 500, y: 0 }, {}, 'display'),
+    ],
+    edges: [
+      {
+        id: 'prompt-model',
+        source: { nodeId: 'prompt', portId: 'prompt' },
+        target: { nodeId: 'model', portId: 'prompt' },
+      },
+      {
+        id: 'model-display',
+        source: { nodeId: 'model', portId: 'frame' },
+        target: { nodeId: 'display', portId: 'source' },
+      },
+    ],
+  };
+}
+
+function createImageFrame(
+  width: number,
+  height: number,
+  complete = true,
+): HTMLImageElement {
+  const image = document.createElement('img');
+  Object.defineProperties(image, {
+    complete: { configurable: true, value: complete },
+    naturalWidth: { configurable: true, value: width },
+    naturalHeight: { configurable: true, value: height },
+  });
+  return image;
+}
+
+function wroteUniform(uniform1f: Mock, name: string, value: number): boolean {
+  return uniform1f.mock.calls.some(
+    ([location, writtenValue]) =>
+      (location as unknown as { name?: string } | null)?.name === name &&
+      writtenValue === value,
+  );
+}
+
 function createRendererHarness(): {
   canvas: HTMLCanvasElement;
+  createTexture: Mock;
   gl: WebGL2RenderingContext;
   deleteTexture: Mock;
   pixelStorei: Mock;
@@ -160,7 +310,14 @@ function createRendererHarness(): {
   uniform1f: Mock;
 } {
   const canvas = document.createElement('canvas');
-  const { gl, deleteTexture, pixelStorei, texImage2D, uniform1f } =
+  const {
+    gl,
+    createTexture,
+    deleteTexture,
+    pixelStorei,
+    texImage2D,
+    uniform1f,
+  } =
     createFakeWebGLContext();
   Object.defineProperty(canvas, 'getContext', {
     configurable: true,
@@ -174,6 +331,7 @@ function createRendererHarness(): {
   renderer.setGraph(createVideoGraph());
   return {
     canvas,
+    createTexture,
     gl,
     deleteTexture,
     pixelStorei,
@@ -223,20 +381,166 @@ describe('renderer size constraints', () => {
   });
 });
 
+describe('presentation frame-rate measurement', () => {
+  it('counts paced presentations without including manual redraws', () => {
+    const { renderer } = createRendererHarness();
+
+    expect(renderer.render(0, 0, undefined, 0).fps).toBe(0);
+    expect(renderer.render(1 / 60, 0, undefined, 1000 / 60).fps).toBeCloseTo(
+      60,
+      5,
+    );
+    expect(renderer.render(1 / 60).fps).toBeCloseTo(60, 5);
+    renderer.dispose();
+  });
+});
+
 describe('control-node evaluation', () => {
   it('routes both XY Pad parameters through their control outputs', () => {
     const { renderer, uniform1f } = createRendererHarness();
     renderer.setGraph(createXYControlGraph());
 
     expect(renderer.render(0)).toMatchObject({ rendered: true, passCount: 3 });
-    const wroteUniform = (name: string, value: number) =>
-      uniform1f.mock.calls.some(
-        ([location, writtenValue]) =>
-          (location as unknown as { name?: string } | null)?.name === name &&
-          writtenValue === value,
-      );
-    expect(wroteUniform('uHue', 0.23)).toBe(true);
-    expect(wroteUniform('uExposure', 0.77)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uHue', 0.23)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uExposure', 0.77)).toBe(true);
+    renderer.dispose();
+  });
+
+  it('evaluates tempo phase, beat pulse, and bar phase deterministically', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    renderer.setGraph(createBeatClockGraph());
+
+    expect(renderer.render(2.5)).toMatchObject({ rendered: true, passCount: 3 });
+    expect(wroteUniform(uniform1f, 'uHue', 0)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uExposure', 1)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uSaturation', 0.25)).toBe(true);
+
+    uniform1f.mockClear();
+    expect(renderer.render(2.625)).toMatchObject({ rendered: true, passCount: 3 });
+    expect(wroteUniform(uniform1f, 'uHue', 0.25)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uExposure', 0)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uSaturation', 0.3125)).toBe(true);
+    renderer.dispose();
+  });
+
+  it('routes pointer position, held, press, and release independently', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    renderer.setGraph(createPointerControlGraph());
+
+    expect(
+      renderer.render(0, 0, {
+        x: 0.2,
+        y: 0.3,
+        down: 0.4,
+        press: 0.5,
+        release: 0.6,
+      }),
+    ).toMatchObject({ rendered: true, passCount: 4 });
+    expect(wroteUniform(uniform1f, 'uEnergy', 0.2)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uAmount', 0.3)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uHue', 0.4)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uExposure', 0.5)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uSaturation', 0.6)).toBe(true);
+    renderer.dispose();
+  });
+});
+
+describe('model frame validation', () => {
+  it('accepts complete images within the texture budget', () => {
+    expect(readImageFrameSize(createImageFrame(1_920, 1_080))).toEqual({
+      width: 1_920,
+      height: 1_080,
+    });
+  });
+
+  it('waits for complete images and rejects invalid dimensions', () => {
+    expect(readImageFrameSize(createImageFrame(640, 480, false))).toBeNull();
+    expect(readImageFrameSize(createImageFrame(0, 480))).toBeNull();
+    expect(readImageFrameSize(createImageFrame(640.5, 480))).toBeNull();
+    expect(
+      readImageFrameSize(createImageFrame(MAX_RENDER_DIMENSION + 1, 1)),
+    ).toBeNull();
+    expect(
+      readImageFrameSize(createImageFrame(1_001, 1_000), 2_000, 1_000_000),
+    ).toBeNull();
+  });
+});
+
+describe('model frame texture lifecycle', () => {
+  it('renders the built-in preview when no generated frame is available', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    renderer.setGraph(createVideoModelGraph());
+
+    expect(renderer.render(1.25)).toMatchObject({ rendered: true, passCount: 2 });
+    expect(wroteUniform(uniform1f, 'uHasSource', 0)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uHasGenerated', 0)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uStrength', 0.7)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uGuidance', 1.2)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uSeed', 42)).toBe(true);
+    renderer.dispose();
+  });
+
+  it('uploads each generated image once and releases it when disconnected', () => {
+    const { deleteTexture, renderer, texImage2D, uniform1f } =
+      createRendererHarness();
+    renderer.setGraph(createVideoModelGraph());
+    const first = createImageFrame(640, 360);
+    renderer.setVideoModelSources(new Map([['model', first]]));
+
+    renderer.render(0);
+    renderer.render(1 / 60);
+    expect(
+      texImage2D.mock.calls.filter(
+        (call) => call.length === 6 && call[5] === first,
+      ),
+    ).toHaveLength(1);
+    expect(wroteUniform(uniform1f, 'uHasGenerated', 1)).toBe(true);
+
+    const replacement = createImageFrame(320, 180);
+    renderer.setVideoModelSources(new Map([['model', replacement]]));
+    renderer.render(2 / 60);
+    expect(
+      texImage2D.mock.calls.filter(
+        (call) => call.length === 6 && call[5] === replacement,
+      ),
+    ).toHaveLength(1);
+
+    const deletesBeforeDisconnect = deleteTexture.mock.calls.length;
+    renderer.setVideoModelSources(new Map());
+    expect(deleteTexture).toHaveBeenCalledTimes(deletesBeforeDisconnect + 1);
+    renderer.dispose();
+  });
+
+  it('keeps the previous model source when a new texture cannot be allocated', () => {
+    const { createTexture, renderer, uniform1f } = createRendererHarness();
+    renderer.setGraph(createVideoModelGraph());
+    createTexture.mockReturnValueOnce(null);
+
+    expect(() =>
+      renderer.setVideoModelSources(
+        new Map([['model', createImageFrame(640, 360)]]),
+      ),
+    ).toThrow(/allocate a model frame texture/i);
+
+    uniform1f.mockClear();
+    expect(renderer.render(0)).toMatchObject({ rendered: true, passCount: 2 });
+    expect(wroteUniform(uniform1f, 'uHasGenerated', 0)).toBe(true);
+    renderer.dispose();
+  });
+
+  it('rebuilds the previous GPU plan when a new graph cannot be applied', () => {
+    const { createTexture, renderer } = createRendererHarness();
+    renderer.setVideoModelSources(
+      new Map([['model', createImageFrame(640, 360)]]),
+    );
+    createTexture
+      .mockReturnValueOnce({ id: 'new-render-target' })
+      .mockReturnValueOnce(null);
+
+    expect(() => renderer.setGraph(createVideoModelGraph())).toThrow(
+      /allocate a model frame texture/i,
+    );
+    expect(renderer.render(0)).toMatchObject({ rendered: true, passCount: 2 });
     renderer.dispose();
   });
 });

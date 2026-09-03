@@ -36,18 +36,24 @@ describe('operator registry', () => {
           expect(parameter.defaultValue).toBeGreaterThanOrEqual(parameter.min);
           expect(parameter.defaultValue).toBeLessThanOrEqual(parameter.max);
           expect(parameter.step).toBeGreaterThan(0);
-        } else {
+        } else if (parameter.type === 'select') {
           expect(
             parameter.options.some(
               ({ value }) => value === parameter.defaultValue,
             ),
           ).toBe(true);
+        } else {
+          expect(typeof parameter.defaultValue).toBe('string');
+          expect(parameter.defaultValue.length).toBeLessThanOrEqual(
+            parameter.maxLength,
+          );
+          expect(parameter.maxLength).toBeGreaterThan(0);
         }
       }
     }
   });
 
-  it('keeps all public signals within the two exact port types', () => {
+  it('keeps all public signals within the three exact port types', () => {
     const signalTypes = new Set(
       OPERATOR_DEFINITIONS.flatMap((definition) => [
         ...definition.inputs.map(({ type }) => type),
@@ -55,7 +61,81 @@ describe('operator registry', () => {
       ]),
     );
 
-    expect(signalTypes).toEqual(new Set(['frame.rgba', 'control.f32']));
+    expect(signalTypes).toEqual(
+      new Set(['frame.rgba', 'control.f32', 'text.utf8']),
+    );
+  });
+
+  it('defines tempo timing with phase, pulse, and bar outputs', () => {
+    const definition = OPERATOR_REGISTRY.beatClock;
+
+    expect(definition.domain).toBe('control');
+    expect(definition.inputs).toEqual([
+      { id: 'time', label: 'Time', type: 'control.f32', optional: true },
+    ]);
+    expect(definition.outputs).toEqual([
+      { id: 'phase', label: 'Phase', type: 'control.f32', optional: false },
+      { id: 'beat', label: 'Beat', type: 'control.f32', optional: false },
+      { id: 'bar', label: 'Bar', type: 'control.f32', optional: false },
+    ]);
+    expect(getDefaultParams('beatClock')).toEqual({
+      bpm: 120,
+      beatsPerBar: 4,
+      pulseWidth: 0.12,
+      offset: 0,
+    });
+  });
+
+  it('exposes pointer position and button-edge signals independently', () => {
+    expect(OPERATOR_REGISTRY.pointer.outputs).toEqual([
+      { id: 'x', label: 'X', type: 'control.f32', optional: false },
+      { id: 'y', label: 'Y', type: 'control.f32', optional: false },
+      { id: 'down', label: 'Held', type: 'control.f32', optional: false },
+      { id: 'press', label: 'Press', type: 'control.f32', optional: false },
+      { id: 'release', label: 'Release', type: 'control.f32', optional: false },
+    ]);
+  });
+
+  it('defines a bounded text prompt source for model instructions', () => {
+    const definition = OPERATOR_REGISTRY.aiPrompt;
+
+    expect(definition.domain).toBe('control');
+    expect(definition.outputs).toEqual([
+      { id: 'prompt', label: 'Prompt', type: 'text.utf8', optional: false },
+    ]);
+    expect(definition.params.text).toMatchObject({
+      type: 'text',
+      maxLength: 4_000,
+      multiline: true,
+    });
+    expect(definition.params.negative).toMatchObject({
+      type: 'text',
+      maxLength: 2_000,
+      multiline: true,
+    });
+  });
+
+  it('defines a model frame operator with typed prompt and optional source inputs', () => {
+    const definition = OPERATOR_REGISTRY.videoModel;
+
+    expect(definition.domain).toBe('frame');
+    expect(definition.inputs).toEqual([
+      { id: 'source', label: 'Source', type: 'frame.rgba', optional: true },
+      { id: 'prompt', label: 'Prompt', type: 'text.utf8', optional: false },
+    ]);
+    expect(definition.outputs).toEqual([
+      { id: 'frame', label: 'Frame', type: 'frame.rgba', optional: false },
+    ]);
+    expect(getDefaultParams('videoModel')).toMatchObject({
+      runtime: 'preview',
+      transport: 'websocket',
+      endpoint: 'ws://127.0.0.1:8189/v1/stream',
+      model: 'realtime-video',
+      strength: 0.7,
+      guidance: 1.2,
+      seed: 42,
+      inputFps: 12,
+    });
   });
 
   it('defines live video as a frame source with safe presentation defaults', () => {

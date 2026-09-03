@@ -2,11 +2,14 @@ export const GRAPH_SCHEMA_VERSION = 1 as const;
 
 export const NODE_KINDS = [
   'time',
+  'beatClock',
   'oscillator',
   'pointer',
+  'aiPrompt',
   'xyPad',
   'audioLevel',
   'videoInput',
+  'videoModel',
   'plasma',
   'cells',
   'warp',
@@ -18,7 +21,7 @@ export const NODE_KINDS = [
 
 export type NodeKind = (typeof NODE_KINDS)[number];
 
-export type PortType = 'frame.rgba' | 'control.f32';
+export type PortType = 'frame.rgba' | 'control.f32' | 'text.utf8';
 
 export type OperatorDomain = 'control' | 'frame' | 'display';
 
@@ -82,9 +85,19 @@ export interface SelectParamDefinition {
   options: readonly SelectParamOption[];
 }
 
+export interface TextParamDefinition {
+  type: 'text';
+  label: string;
+  defaultValue: string;
+  maxLength: number;
+  placeholder?: string;
+  multiline?: boolean;
+}
+
 export type OperatorParamDefinition =
   | NumberParamDefinition
-  | SelectParamDefinition;
+  | SelectParamDefinition
+  | TextParamDefinition;
 
 export interface XYParameterLayout {
   type: 'xy';

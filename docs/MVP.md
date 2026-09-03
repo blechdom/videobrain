@@ -10,18 +10,20 @@ The demo succeeds when editing the graph feels immediate, control signals visibl
 
 ## Decision
 
-Build a static, client-only TypeScript application with:
+Build a static TypeScript application whose editing and baseline rendering stay client-only, with:
 
 - React and `@xyflow/react` for the editor;
 - Zustand for project and session commands;
 - WebGL2 for frame generation and processing;
-- a small CPU evaluator for scalar and vector controls;
+- a small CPU evaluator for scalar timing and interaction controls;
+- bounded text parameters/ports for prompt routing;
+- an optional session connector for compatible user-run model adapters;
 - one visible output canvas driven by the browser display clock;
 - versioned JSON plus local storage for persistence.
 
 WebGL2 is the only rendering backend required for the MVP. The runtime will hide it behind a renderer interface so WebGPU can be added without changing graph semantics.
 
-This decision tests the actual product architecture while retaining broad browser reach and static hosting. It avoids the latency, cost, authentication, and lifecycle complexity of a remote renderer.
+This decision tests the actual product architecture while retaining broad browser reach and static hosting. The built-in visual path avoids remote-renderer latency, cost, authentication, and lifecycle complexity; optional model connections must remain an explicit extension rather than a startup dependency.
 
 ## Options considered
 
@@ -41,15 +43,18 @@ The application opens directly into a working project. The user can:
 1. see the animated result immediately;
 2. pan, zoom, select, and move nodes;
 3. add a node from a searchable palette;
-4. connect compatible ports and receive clear feedback for invalid connections;
-5. edit a node from its visible inline controls or the selected-node inspector;
-6. connect a control output to a visual parameter and see it animate;
-7. play, pause, reset, and enter a focused output view;
-8. undo and redo graph edits;
-9. reload the page and recover the saved project;
-10. import or export the project as JSON.
+4. replace the graph from New patch with Blank Canvas or a complete starter;
+5. connect compatible ports and receive clear feedback for invalid connections;
+6. edit a node from its visible inline controls or the selected-node inspector;
+7. connect a control output to a visual parameter and see it animate;
+8. route AI Chat text into Video Model and see its permission-free built-in visual preview;
+9. optionally connect Video Model to a compatible local/API adapter;
+10. play, pause, reset, choose display/60/30 monitor pacing, and enter a focused output view;
+11. undo and redo graph edits;
+12. reload the page and recover the saved project;
+13. import or export the project as JSON.
 
-The default composition should be attractive without media permissions. A procedural pattern passes through transform and color stages into the output, with periodic control nodes driving motion and color. A Delay-based trail can be included if it is stable before launch. Camera and microphone inputs remain optional and activate only after an explicit user action.
+The built-in **Signal Graph** is attractive without media permissions or network access. Procedural patterns pass through warp, blend, trails, color, and the Video Model preview into Display, with transport, beat, oscillator, pointer, XY, and audio controls driving the result. Camera and microphone inputs remain optional and activate only after an explicit user action.
 
 ## MVP scope
 
@@ -58,15 +63,17 @@ The default composition should be attractive without media permissions. A proced
 - Infinite graph canvas with pan and zoom.
 - Select, move, connect, disconnect, create, duplicate, and delete.
 - Searchable node palette.
+- Accessible New patch menu with Blank Canvas and seven validated starter graphs.
 - Custom node cards with category, name, typed ports, reachability state, and always-visible parameter controls.
 - Inspector with parameter sliders and operator details.
-- Distinct visual treatment for `frame` and `control` connections.
+- Distinct visual treatment for `frame.rgba`, `control.f32`, and `text.utf8` connections.
 - Toolbar for transport, undo, redo, reset project, import, export, and focused output.
 - Keyboard deletion and escape-to-cancel for core interactions.
 
 ### Implemented frame nodes
 
 - Video Input with explicit opt-in camera access, facing preference, fit, and mirror controls.
+- Video Model with a built-in procedural visual preview and compatible WebSocket/HTTP adapter modes.
 - Flow Field and Cells procedural producers.
 - Warp and two-input Blend processors.
 - Trails with internally managed previous-frame state.
@@ -75,13 +82,24 @@ The default composition should be attractive without media permissions. A proced
 
 ### Implemented control nodes
 
-- Time.
+- Transport Time.
+- Beat Clock with phase, beat pulse, and bar phase outputs.
 - Oscillator with sine, triangle, saw, and square waveforms.
-- Pointer position.
+- Pointer X/Y position plus Held state and one-tick Press/Release pulses.
 - XY Pad with normalized, independently connectable X and Y values.
 - Audio Level with deterministic demo input and explicit opt-in microphone analysis.
 
 Every animatable numeric visual parameter uses the same typed control-port mechanism. The graph does not rely on node-specific animation wiring.
+
+### Implemented text and model connection
+
+- AI Chat provides bounded prompt and negative-prompt editing and emits `text.utf8`.
+- Video Model consumes the prompt and emits the latest valid frame. Preview can transform any optional upstream visual; current external transport sends only a directly connected camera over WebSocket.
+- Preview mode is an immediate built-in GPU stand-in, not model inference.
+- Local/API modes require an endpoint implementing `videobrain.frames.v1`; they do not directly support arbitrary vendor APIs.
+- Session API keys are memory-only and excluded from project JSON. API mode and keys require HTTPS/WSS. A directly connected camera is transmitted only over an explicitly connected Video Model WebSocket.
+
+See [Model Connectors](MODEL_CONNECTORS.md) for the current wire contract and adapter architecture.
 
 ### Deferred node breadth
 
@@ -96,6 +114,9 @@ Every animatable numeric visual parameter uses the same typed control-port mecha
 - Topological execution planning.
 - Detection and rejection of zero-delay cycles.
 - Stable elapsed-time behavior when frame rate changes.
+- Display-synchronized, 60 fps, and 30 fps monitor pacing on one anchored browser animation clock.
+- Pointer held state plus press/release pulses that last for one rendered tick.
+- Latest-frame handoff from camera and compatible model sessions without blocking the render loop.
 - Shader and renderer failures shown in the output monitor.
 - WebGL context-loss messaging and recovery.
 - Resolution and pixel-density caps.
@@ -107,6 +128,7 @@ Every animatable numeric visual parameter uses the same typed control-port mecha
 - Debounced local autosave.
 - JSON import/export.
 - A known-good built-in project used when saved data is absent or invalid.
+- Undoable graph replacement for blank and starter patches; replacement stops active device/model sessions and clears transient credentials.
 
 ## Explicitly out of scope
 
@@ -119,6 +141,8 @@ Every animatable numeric visual parameter uses the same typed control-port mecha
 - Multi-user collaboration.
 - Accounts or cloud project storage.
 - Server-side rendering.
+- A bundled/in-browser model inference runtime.
+- Direct compatibility with arbitrary model-vendor endpoints; adapters own provider translation.
 - Video recording and codec selection.
 - Mobile-first graph editing.
 - Compatibility with another product's files, node catalog, or terminology.
@@ -132,19 +156,26 @@ The initial target is a current desktop browser on an integrated or discrete GPU
 | Output resolution | Responsive canvas, capped to 1.5× device pixel ratio |
 | Visual rate | Smooth 60 Hz where hardware permits; no correctness dependency on 60 Hz |
 | UI response | Parameter changes visible by the next rendered frame |
-| Default graph | 12 nodes and 7 GPU passes |
+| Default Signal Graph | 15 nodes and 8 GPU passes |
 | Startup | Working default output without a network request after assets load |
 | Persistence | Autosave without visible frame hitching |
 
-Quality should degrade predictably. The UI reports measured frame rate and does not alter the project silently.
+Quality should degrade predictably. The monitor can follow the browser display
+refresh or cap rendering at 60 fps or 30 fps without timer drift. The UI
+reports a rolling measurement of monitor renders and does not alter
+the project silently.
 
 ## Acceptance criteria
 
 The POC is complete when all of the following are demonstrable in a production build:
 
 - The built-in project renders immediately after page load.
+- Every nonblank starter compiles to a Display path, while Blank Canvas is truly empty.
 - Adding, removing, and rewiring supported nodes changes the output correctly.
 - At least one periodic control visibly modulates a transform parameter.
+- Beat Clock phase drives a downstream oscillator, and Pointer exposes position, held, press, and release values.
+- AI Chat connects to Video Model through a validated `text.utf8` edge.
+- Video Model preview renders without a request, while Local/API modes remain disconnected until the user acts.
 - One control can be rewired to a color or mix parameter without custom code.
 - Incompatible connections are rejected before entering project state.
 - A malformed project import leaves the current project intact and reports an error.
@@ -170,7 +201,9 @@ Reject all ordinary cycles. Permit retained state only through the Delay contrac
 
 ### Browser suspension causes large time jumps
 
-Use monotonic timestamps, cap simulation catch-up, and reset or clamp excessive elapsed intervals after a tab resumes.
+Keep Transport Time aligned to monotonic active-play time, but do not replay every
+missed visual frame after a tab resumes. Future fixed-step simulations should cap
+their own catch-up work without changing the shared clock.
 
 ### Media permissions damage the first-run experience
 
@@ -179,6 +212,10 @@ The built-in project uses no protected device. Camera and microphone activation 
 ### Remote assets fail because of origin policy
 
 Prefer uploads, packaged assets, and same-origin URLs. Validate remote responses and explain that a server must explicitly permit use as a visual input.
+
+### Model integration implies compatibility or privacy that is not present
+
+Label the built-in preview as a visual stand-in, not inference. Require the versioned adapter contract for Local/API modes, keep credentials out of saved projects, reveal the configured destination, and send camera frames only through a directly connected live Video Model WebSocket.
 
 ### Browser and GPU behavior differs
 
@@ -201,7 +238,7 @@ Judge the MVP by graph fluency, modulation, visual quality, and reliability. Add
 
 - Add texture pooling, better GPU timing, adaptive resolution, and offscreen-worker evaluation.
 - Harden camera and microphone inputs; add media upload and recording.
-- Add richer control mapping, events, presets, and reusable modules.
+- Add richer control mapping, events, saved parameter snapshots, and reusable modules.
 - Expand browser and accessibility testing.
 
 ### Phase 2: modern compute and extensibility

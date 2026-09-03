@@ -8,16 +8,34 @@ describe('HelpDialog', () => {
     render(<HelpDialog onClose={() => undefined} />);
 
     expect(
-      screen.getByRole('dialog', { name: 'Build a live signal patch' }),
+      screen.getByRole('dialog', { name: 'Explore the Signal Graph' }),
     ).toBeVisible();
-    expect(screen.getByText('Two signal types, one graph')).toBeVisible();
+    expect(screen.getByText('Three signal types, one graph')).toBeVisible();
+    expect(screen.getByText('Starter patches')).toBeVisible();
+    expect(screen.getByText('Blank Canvas')).toBeVisible();
+    expect(screen.getByText('Beat-Synced Color')).toBeVisible();
+    expect(screen.getByText('Camera Dream')).toBeVisible();
+    expect(screen.getByText(/Starting any new patch stops active camera/)).toBeVisible();
     expect(screen.getByText('Nodes available now')).toBeVisible();
     expect(screen.getByText('Flow Field')).toBeVisible();
+    expect(screen.getByText('AI Chat')).toBeVisible();
+    expect(screen.getByText('Video Model')).toBeVisible();
     expect(
       screen.getByText('A hands-on pair of normalized control signals.'),
     ).toBeVisible();
     expect(screen.getByText('Two-axis color control')).toBeVisible();
     expect(screen.getByText('Audio-reactive trails')).toBeVisible();
+    expect(screen.getByText('Beat-locked motion')).toBeVisible();
+    expect(screen.getByText('Model connector preview')).toBeVisible();
+    expect(screen.getByText('AI Chat and Video Model')).toBeVisible();
+    expect(screen.getByText(/entering an arbitrary vendor URL/)).toBeVisible();
+    expect(screen.getByText(/Display sync follows/)).toBeVisible();
+    expect(
+      screen.getByRole('link', { name: /model adapter protocol/ }),
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/blechdom/videobrain/blob/main/docs/MODEL_CONNECTORS.md',
+    );
     expect(screen.getByRole('link', { name: /Full roadmap/ })).toHaveAttribute(
       'href',
       'https://github.com/blechdom/videobrain/blob/main/docs/FUTURE_DEVELOPMENT.md',
@@ -56,7 +74,7 @@ describe('HelpDialog', () => {
     render(<HelpDialog onClose={() => undefined} />);
 
     expect(
-      screen.getByRole('dialog', { name: 'Build a live signal patch' }),
+      screen.getByRole('dialog', { name: 'Explore the Signal Graph' }),
     ).toHaveFocus();
     await user.tab({ shift: true });
 

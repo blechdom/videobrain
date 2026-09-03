@@ -2,10 +2,14 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { getDefaultParams, getOperatorDefinition } from '../graph';
+import {
+  getDefaultParams,
+  getOperatorDefinition,
+  type NodeKind,
+} from '../graph';
 import { NodeParameterControls } from './NodeParameterControls';
 
-function renderControls(kind: 'oscillator' | 'videoInput' | 'xyPad') {
+function renderControls(kind: NodeKind) {
   const definition = getOperatorDefinition(kind);
   const props = {
     nodeId: `${kind}-1`,
@@ -65,6 +69,42 @@ describe('NodeParameterControls', () => {
       'fit',
       'contain',
     );
+  });
+
+  it('keeps multiline prompt editing inside one undo gesture', () => {
+    const props = renderControls('aiPrompt');
+    const prompt = screen.getByRole('textbox', { name: 'AI Chat Prompt' });
+
+    fireEvent.focus(prompt);
+    fireEvent.change(prompt, {
+      target: { value: 'Amber light folding through glass' },
+    });
+    fireEvent.blur(prompt);
+
+    expect(prompt).toHaveAttribute('maxlength', '4000');
+    expect(props.onSelect).toHaveBeenCalled();
+    expect(props.onGestureStart).toHaveBeenCalledOnce();
+    expect(props.onParamChange).toHaveBeenCalledWith(
+      'aiPrompt-1',
+      'text',
+      'Amber light folding through glass',
+    );
+    expect(props.onGestureEnd).toHaveBeenCalledOnce();
+  });
+
+  it('renders the complete beat clock as live in-node sliders', () => {
+    renderControls('beatClock');
+
+    expect(screen.getByRole('slider', { name: 'Beat Clock BPM' })).toBeVisible();
+    expect(
+      screen.getByRole('slider', { name: 'Beat Clock Beats / bar' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('slider', { name: 'Beat Clock Pulse width' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('slider', { name: 'Beat Clock Beat offset' }),
+    ).toBeVisible();
   });
 
   it('maps a two-axis pointer gesture to normalized X and Y values', () => {

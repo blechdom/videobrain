@@ -6,10 +6,13 @@ Status: proof-of-concept architecture. This document defines the product model a
 
 VideoBrain is a browser-native environment for building live visual systems from connected nodes. Editing and playback happen at the same time: changing a value or connection should affect the output immediately, without a separate compile or export step.
 
-The first release focuses on two cooperating graphs:
+The first release presents one **Signal Graph** with three typed paths:
 
-- a GPU-backed frame graph for generating and processing images;
-- a CPU-backed control graph for time, oscillation, editable XY values, pointer/audio input, and parameter modulation, alongside camera frames in the GPU frame graph.
+- a GPU-backed `frame.rgba` path for generating, receiving, and processing images;
+- a CPU-backed `control.f32` path for transport/beat timing, oscillation, editable XY values, pointer/audio input, and parameter modulation;
+- a `text.utf8` path for model prompts and future text processing.
+
+An optional session-owned connector can exchange prompts and bounded image frames with a compatible user-run model adapter. The default graph instead uses a built-in procedural preview, so it opens without a backend, network request, credential, or device permission.
 
 The architecture deliberately separates the editor, the persistent project, and the real-time runtime. This lets the product change its renderer, move work to workers, add collaboration, or expose an automation API without replacing the graph editor.
 
@@ -18,30 +21,27 @@ Sections that name the POC describe current behavior. Features explicitly called
 ## System map
 
 ```text
-Pointer / keyboard / clock / media devices
-                  |
-                  v
-          +-----------------+
-          | Input adapters  |
-          +--------+--------+
-                   |
-                   v
-          +-----------------+       structural edits
-          | Control runtime | <---------------------------+
-          +--------+--------+                             |
-                   | resolved parameter values             |
-                   v                                       |
-Frame sources -> Frame processors -> Active output         |
-                   |                    |                   |
-                   v                    v                   |
-             GPU textures          Preview canvas          |
-                                                            |
-          +-----------------+       +---------------------+  |
-          | Runtime status  | ----> | Editor and inspector|--+
-          +-----------------+       +----------+----------+
-                                               |
-                                               v
-                                     Serializable project
+Pointer / keyboard / clocks / media devices
+                     |
+                     v
+             +-----------------+
+             | Input adapters  |
+             +--------+--------+
+                      |
+Text prompts -> Control/text plan -- resolved values ------+
+                      |                                    |
+                      v                                    v
+Frame sources -> Frame processors -> Active Display -> Preview canvas
+      ^               |                                      |
+      |               v                                      v
+      |          GPU textures                         Runtime status
+      |                                                      |
+Compatible model adapter <-> session connector       Editor / inspector
+                                                             |
+                                                     validated commands
+                                                             |
+                                                             v
+                                                    Serializable project
 ```
 
 Display outputs are demand roots. Only nodes reachable from a display belong to its execution plan. Input events update controls or authoring state; they do not render directly.
@@ -70,8 +70,9 @@ Initial data types are:
 | --- | --- | --- |
 | `frame.rgba` | A two-dimensional GPU color image | Yes |
 | `control.f32` | A scalar evaluated on the CPU | Yes |
+| `text.utf8` | Bounded UTF-8 authoring text, currently used for model prompts | Yes |
 | `event` | A discrete occurrence with an optional payload | Future |
-| `record` | Structured text or tabular data | Future |
+| `record` | Structured or tabular data | Future |
 | `geometry` | Points, attributes, and primitives | Future |
 
 Parameter modulation is part of the dependency graph. Numeric parameters may expose a `control.f32` input, while their literal project value remains available when no edge supplies that input. Explicit mapping policies are a future extension.
@@ -93,8 +94,8 @@ A module is a reusable nested graph with declared public ports and parameters. M
 VideoBrain has three kinds of state:
 
 1. **Project state** is deterministic and serializable. The POC contains nodes, edges, and a document schema version; settings, asset references, and output selection can extend that document later.
-2. **Session state** belongs to the editor. It contains selection, open panels, viewport position, drag state, and temporary menus.
-3. **Runtime state** is ephemeral. It contains execution plans, GPU resources, media handles, previous-frame buffers, resolved controls, errors, and performance counters.
+2. **Session state** belongs to the editor and capability adapters. It contains selection, open panels, viewport position, drag state, temporary menus, permission state, and endpoint-scoped credentials.
+3. **Runtime state** is ephemeral. It contains execution plans, GPU resources, media handles, sockets, requests, decoded model frames, previous-frame buffers, resolved controls, errors, and performance counters.
 
 Project changes go through commands in a central store. Commands are the unit of validation, undo, redo, persistence, collaboration, and future automation. Rendering code reads immutable project snapshots and publishes runtime status through a separate, throttled channel. It must not write frame-by-frame values into the authoring store.
 
@@ -120,14 +121,15 @@ The POC recompiles a small graph snapshot after any project change. A later plan
 The browser display clock initiates a visual tick:
 
 1. sample monotonic time and the elapsed interval;
-2. snapshot current user and device inputs;
-3. evaluate reachable control nodes;
-4. resolve modulated parameters;
-5. evaluate reachable frame nodes in plan order;
-6. present the selected result to the output canvas;
-7. publish throttled diagnostics to the editor.
+2. snapshot current user and device inputs, including pointer held state and one-tick press/release pulses;
+3. evaluate reachable timing and control nodes;
+4. resolve text bindings and modulated parameters;
+5. sample the latest available camera or generated-model images;
+6. evaluate reachable frame nodes in plan order;
+7. present the selected result to the output canvas;
+8. publish throttled diagnostics to the editor.
 
-The POC evaluates every reachable frame node once per visual tick. A future dirty-revision layer can retain static results and skip a node unless an input, resolved parameter, clock dependency, or retained state requires another step.
+The POC evaluates every reachable frame node once per scheduled visual tick. Model requests and media capture are asynchronous producers: they publish the latest complete frame without bypassing or blocking the display clock. A future dirty-revision layer can retain static results and skip a node unless an input, resolved parameter, clock dependency, or retained state requires another step.
 
 ### Feedback and retained state
 
@@ -144,8 +146,11 @@ The GPU implementation uses two textures and swaps their roles after a successfu
 
 Visual rendering and audio processing have different clocks.
 
-- The MVP control graph produces scalar or vector values once per visual tick.
+- The MVP control graph produces scalar values once per scheduled visual tick.
+- Transport Time is monotonic playback time. Beat Clock derives tempo-locked phase, a configurable-width beat pulse, and bar phase from transport or an optional time input.
+- Pointer X/Y and Held are sampled state. Press and Release are one-tick pulses cleared immediately after the next render so a held button is not mistaken for repeated clicks.
 - Camera and microphone analysis provide the most recent available snapshot.
+- Model connections run on network/request time and publish only complete decoded frames.
 - Future sample-accurate audio runs in an audio worklet and exchanges bounded control summaries with the visual runtime.
 
 Node behavior uses monotonic elapsed time rather than assuming a fixed frame rate. Stateful simulations may use a fixed internal step with a capped catch-up count so a suspended tab cannot cause an unbounded burst of work.
@@ -160,6 +165,7 @@ The POC renderer owns:
 - shader compilation and caching by node kind;
 - texture and framebuffer allocation;
 - live camera frame texture upload, fit/mirror presentation, and a safe fallback when no frame is available;
+- latest-frame upload for compatible model-adapter responses, with the built-in procedural preview used until a generated frame is available;
 - per-node textures and framebuffer lifetimes;
 - a neutral fallback texture for missing or failed inputs;
 - presentation and runtime diagnostics.
@@ -170,9 +176,28 @@ A renderer interface isolates graph semantics from WebGL2 details. A future WebG
 
 ## Control path
 
-The CPU control runtime evaluates small values rather than image-sized buffers. POC control nodes include a monotonic clock, periodic waves, an editable normalized XY source, pointer position, and optional media level analysis. Constants, arithmetic, range mapping, and smoothing are future node additions.
+The CPU control runtime evaluates small values rather than image-sized buffers. POC control nodes include monotonic Transport Time, tempo-locked Beat Clock, periodic waves, an editable normalized XY source, pointer position/held/press/release, and optional media level analysis. Constants, arithmetic, range mapping, and smoothing are future node additions.
+
+The monitor owns one `requestAnimationFrame` scheduler. Display-sync mode renders
+on every callback; fixed 60 fps and 30 fps modes select slots from an anchored
+cadence and skip missed slots without moving the next deadline. Playback time is
+updated from the browser animation clock even on skipped callbacks, so lowering
+the render rate caps GPU work without slowing the composition. Diagnostics
+report a rolling average of monitor renders and restart the sample
+window after pauses or long browser stalls.
 
 Control evaluation follows the same reachability and revision rules as the frame graph. A control chain runs only when it contributes to an exposed parameter or output. Non-finite values are contained at the node boundary and reported as diagnostics rather than allowed to poison the GPU pass.
+
+## Text and model connector path
+
+AI Chat stores bounded positive and negative prompt text in project state and exposes the positive prompt as `text.utf8`. The compiler validates that typed edge; the current connector resolves an AI Chat source directly, while general text evaluation, transforms, and rendering remain future work.
+
+Video Model has two deliberately separate behaviors:
+
+1. **Preview** is a built-in procedural GPU effect. It is available immediately, can incorporate an optional upstream frame visually, and performs no inference or network request.
+2. **Local/API** uses HTTP or WebSocket to communicate with a compatible user-run adapter. The browser sends the prompt, portable settings, and—only for a directly connected, live camera over WebSocket—paced JPEG input frames. Other upstream frame nodes remain a local preview input in this release; general GPU-frame upload is deferred to avoid synchronous readback. The adapter returns bounded browser-decodable images; the newest valid image becomes the node's GPU source.
+
+The browser does not host or launch the model and does not translate arbitrary vendor APIs. A provider-specific runtime normally needs a local adapter or trusted API gateway implementing `videobrain.frames.v1`. Endpoint URLs, prompt text, and model/workflow identifiers are project data. Credentials, sockets, requests, camera encoders, and decoded image handles remain session/runtime data. See [Model Connectors](MODEL_CONNECTORS.md) for the wire contract and trust boundary.
 
 ## System boundaries
 
@@ -185,6 +210,7 @@ Control evaluation follows the same reachability and revision rules as the frame
 | Control runtime | CPU values, input snapshots, modulation | Authoring UI state |
 | Frame renderer | GPU programs, textures, passes, presentation | Persistent project mutations |
 | Input adapters | Permissioned browser and device APIs | Graph structure |
+| Model connector | Compatible HTTP/WebSocket sessions, bounded images, transient credentials | Vendor-specific assumptions or saved secrets |
 | Persistence | Load, validate, save, autosave | Live GPU objects |
 | Diagnostics | Errors, evaluation counts, timing summaries | Unthrottled project writes |
 
@@ -197,15 +223,22 @@ The current implementation enforces these limits before replacing a valid plan:
 - project JSON up to 1,000,000 UTF-8 bytes;
 - up to 128 nodes and 512 edges;
 - up to 16 reachable frame processors, 17 GPU passes, and 20 offscreen targets;
-- output capped to 2,048 pixels per dimension, 2,073,600 pixels total (a 1080p-sized area), and 2× device pixel ratio.
+- output capped to 2,048 pixels per dimension, 2,073,600 pixels total (a 1080p-sized area), and 1.5× device pixel ratio;
+- generated model images capped to 20 MiB before decode and to the same dimension/pixel limits afterward;
+- outbound model-camera frames capped to a 768-pixel longest edge and 30 fps, with transmission paused above a 4 MiB socket backlog.
 
-Parameter keys, types, numeric ranges, and select options are validated against the registry. Missing registered parameters receive their defaults; unknown data is rejected transactionally.
+Parameter keys, types, numeric ranges, select options, and text lengths are validated against the registry. Missing registered parameters receive their defaults; unknown data is rejected transactionally.
 
 ## Security and resource safety
 
 - Project loading never evaluates JavaScript strings.
 - Automation uses validated graph commands, not arbitrary code execution.
 - Camera and microphone access starts only after an explicit user action and has a visible active state.
+- The built-in model preview is local visual processing, not inference, and opens no network connection.
+- Local/API model modes accept only a compatible HTTP/WebSocket adapter contract; they do not make arbitrary third-party APIs directly compatible.
+- Model credentials remain in memory, are scoped to the configured endpoint, and are never serialized or exported.
+- Camera frames leave the tab only while the camera is live, directly connected to Video Model, and its compatible WebSocket is open.
+- API adapters and every credential-bearing connection require HTTPS/WSS. Plain HTTP/WS is limited to credential-free Local loopback use, and the hosted HTTPS page rejects both plaintext transports.
 - Remote media must be same-origin or explicitly permit cross-origin use. Arbitrary webpages are not frame sources.
 - Project size, output resolution, node count, GPU pass count, and retained-frame memory receive hard limits.
 - User-authored shaders are deferred until they can be compiled in an isolated, cancellable workflow with clear diagnostics.
@@ -222,6 +255,7 @@ The preserved boundaries support the following additions:
 - reusable modules and a versioned node package system;
 - recording and live-stream outputs;
 - collaborative editing with revisioned commands;
+- capability-negotiated model adapters, in-browser model runtimes, and richer conditioning types;
 - an authenticated automation gateway that can inspect, patch, validate, and preview graphs;
 - optional cloud execution for workloads that exceed local browser capabilities.
 

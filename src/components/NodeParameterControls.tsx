@@ -276,6 +276,43 @@ export function NodeParameterControls({
       {renderXYPad()}
       {parameters.map(([paramId, parameter]) => {
         const value = params[paramId] ?? parameter.defaultValue;
+        if (parameter.type === 'text') {
+          const textValue =
+            typeof value === 'string' ? value : parameter.defaultValue;
+          const commonProps = {
+            className: 'nodrag nopan nowheel',
+            value: textValue,
+            maxLength: parameter.maxLength,
+            placeholder: parameter.placeholder,
+            'aria-label': `${definition.title} ${parameter.label}`,
+            onPointerDown: (event: React.PointerEvent) => {
+              event.stopPropagation();
+              onSelect?.();
+            },
+            onClick: (event: React.MouseEvent) => event.stopPropagation(),
+            onKeyDown: (event: React.KeyboardEvent) => event.stopPropagation(),
+            onFocus: () => {
+              onSelect?.();
+              onGestureStart();
+            },
+            onBlur: onGestureEnd,
+            onChange: (
+              event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+            ) => onParamChange(nodeId, paramId, event.target.value),
+          };
+
+          return (
+            <label className="node-parameter node-parameter-text" key={paramId}>
+              <span className="node-parameter-label">{parameter.label}</span>
+              {parameter.multiline ? (
+                <textarea {...commonProps} rows={4} />
+              ) : (
+                <input {...commonProps} type="text" />
+              )}
+              <output>{textValue.length}/{parameter.maxLength}</output>
+            </label>
+          );
+        }
         if (parameter.type === 'select') {
           return (
             <label className="node-parameter node-parameter-select" key={paramId}>

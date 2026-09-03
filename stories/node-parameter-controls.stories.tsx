@@ -20,7 +20,8 @@ function StatefulParameters({ definition, nodeId, params }: ParameterProps) {
         <h1>{definition.title} parameters</h1>
         <p className="vb-story-intro">
           This is the same metadata-driven control surface rendered inside a graph node.
-          Numeric values are sliders; finite choices remain compact selects.
+          Numeric values are sliders, finite choices are compact selects, and text
+          instructions remain editable in place.
         </p>
       </div>
       <div
@@ -99,6 +100,63 @@ export const TwoAxisPad: Story = {
     docs: {
       description: {
         story: 'Drag anywhere in the pad to edit X and Y together, or use the native axis sliders for precise independent changes. The pad supports arrow keys, with Shift for coarser steps.',
+      },
+    },
+  },
+};
+
+export const BeatClockTiming: Story = {
+  args: {
+    nodeId: 'beat-clock-story',
+    definition: getOperatorDefinition('beatClock'),
+    params: {
+      ...getDefaultParams('beatClock'),
+      bpm: 124,
+      beatsPerBar: 4,
+    },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'BPM, meter, pulse width, and phase offset are all immediately adjustable on the node.',
+      },
+    },
+  },
+};
+
+export const AIChatText: Story = {
+  args: {
+    nodeId: 'prompt-story',
+    definition: getOperatorDefinition('aiPrompt'),
+    params: {
+      text: 'Bioluminescent ribbons moving slowly through deep blue water',
+      negative: 'flicker, lettering, hard cuts',
+    },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Prompt and avoidance text are editable directly in the node and publish through the typed text output.',
+      },
+    },
+  },
+};
+
+export const VideoModelControls: Story = {
+  args: {
+    nodeId: 'model-story',
+    definition: getOperatorDefinition('videoModel'),
+    params: {
+      ...getDefaultParams('videoModel'),
+      runtime: 'local',
+      strength: 0.82,
+      inputFps: 16,
+    },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Runtime, transport, endpoint, model ID, image controls, seed, and input cadence are visible before a worker is connected.',
       },
     },
   },

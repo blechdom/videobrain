@@ -1,10 +1,17 @@
+import { useState } from 'react';
 import { Braces, Copy, Mic2, Trash2, Video } from 'lucide-react';
 import {
   getOperatorDefinition,
+  type GraphDocument,
   type GraphNode,
   type GraphParamValue,
 } from '../graph';
 import type { AudioInputState } from '../hooks/useAudioLevel';
+import {
+  resolveVideoModelConfig,
+  type VideoModelRuntime,
+  type VideoModelSessionState,
+} from '../hooks/useVideoModel';
 import type {
   VideoFacingMode,
   VideoInputState,
@@ -27,6 +34,8 @@ interface InspectorProps {
   onDisableMicrophone: () => void;
   onEnableCamera: (facingMode: VideoFacingMode) => Promise<void>;
   onDisableCamera: () => void;
+  graphDocument: GraphDocument;
+  videoModelRuntime: VideoModelRuntime;
 }
 
 export function Inspector({
@@ -44,6 +53,8 @@ export function Inspector({
   onDisableMicrophone,
   onEnableCamera,
   onDisableCamera,
+  graphDocument,
+  videoModelRuntime,
 }: InspectorProps) {
   if (!node) {
     return (
@@ -64,6 +75,16 @@ export function Inspector({
   const Icon = meta.icon;
   const selectedFacingMode: VideoFacingMode =
     node.params.facing === 'environment' ? 'environment' : 'user';
+  const videoModelConfig =
+    node.kind === 'videoModel'
+      ? resolveVideoModelConfig(graphDocument, node.id)
+      : null;
+  const videoModelSession =
+    node.kind === 'videoModel' ? videoModelRuntime.getSession(node.id) : null;
+  const videoModelSocketActive =
+    videoModelSession?.state === 'live' ||
+    videoModelSession?.state === 'connecting' ||
+    videoModelSession?.state === 'generating';
 
   return (
     <aside
@@ -106,6 +127,43 @@ export function Inspector({
           <div className="parameter-list">
             {Object.entries(definition.params).map(([paramId, parameter]) => {
               const value = node.params[paramId] ?? parameter.defaultValue;
+              if (parameter.type === 'text') {
+                const textValue =
+                  typeof value === 'string' ? value : parameter.defaultValue;
+                const inputId = `inspector-${node.id}-${paramId}`;
+                const countId = `${inputId}-count`;
+                const commonProps = {
+                  id: inputId,
+                  value: textValue,
+                  maxLength: parameter.maxLength,
+                  placeholder: parameter.placeholder,
+                  'aria-describedby': countId,
+                  onFocus: onGestureStart,
+                  onBlur: onGestureEnd,
+                  onChange: (
+                    event: React.ChangeEvent<
+                      HTMLInputElement | HTMLTextAreaElement
+                    >,
+                  ) => onParamChange(node.id, paramId, event.target.value),
+                };
+                return (
+                  <div className="parameter-row parameter-row-text" key={paramId}>
+                    <span className="parameter-label-row">
+                      <label className="parameter-label" htmlFor={inputId}>
+                        {parameter.label}
+                      </label>
+                      <output className="parameter-value" id={countId}>
+                        {textValue.length}/{parameter.maxLength}
+                      </output>
+                    </span>
+                    {parameter.multiline ? (
+                      <textarea {...commonProps} rows={5} />
+                    ) : (
+                      <input {...commonProps} type="text" />
+                    )}
+                  </div>
+                );
+              }
               if (parameter.type === 'select') {
                 return (
                   <label className="parameter-row" key={paramId}>
@@ -222,8 +280,101 @@ export function Inspector({
                   : 'Try camera again'}
           </button>
           <p className="input-privacy-note">
-            Permission is requested only when you enable the camera. Frames stay in this tab.
+            Permission is requested only when you enable the camera. Frames stay
+            in this tab unless you explicitly connect this node to a networked
+            Video Model.
           </p>
+        </section>
+      ) : null}
+
+      {node.kind === 'videoModel' && videoModelConfig && videoModelSession ? (
+        <section className="inspector-section model-runtime-section">
+          <div className="section-label">Model connection</div>
+          <div
+            className={`input-state input-state-${videoModelSession.state}`}
+            aria-live="polite"
+          >
+            <i aria-hidden="true" />
+            <strong>{modelStateLabel(videoModelSession.state)}</strong>
+            <span>{videoModelConfig.transport}</span>
+          </div>
+          <p
+            className="inspector-description"
+            role={videoModelSession.error ? 'alert' : undefined}
+          >
+            {videoModelSession.error ??
+              modelStateDescription(
+                videoModelSession.state,
+                videoModelConfig.acceptsCameraFrames,
+              )}
+          </p>
+          {videoModelConfig.runtime === 'preview' ? (
+            <p className="input-privacy-note">
+              Preview mode is a local procedural stand-in. Choose Local or API,
+              set an endpoint above, and connect to receive generated frames.
+            </p>
+          ) : (
+            <>
+              {videoModelConfig.hasSource &&
+              !videoModelConfig.acceptsCameraFrames ? (
+                <p className="input-privacy-note">
+                  <strong>Source is graph-local.</strong> Source pixels are sent
+                  to a model worker only when a Video Input is connected directly
+                  in WebSocket mode.
+                </p>
+              ) : null}
+              <SessionKeyField
+                key={`${node.id}-${videoModelConfig.endpoint}`}
+                hasCredential={videoModelSession.hasCredential}
+                onCommit={(credential) =>
+                  videoModelRuntime.setCredential(node.id, credential)
+                }
+              />
+              <div className="model-runtime-actions">
+                {videoModelConfig.transport === 'websocket' ? (
+                  <button
+                    type="button"
+                    className={
+                      videoModelSocketActive
+                        ? 'danger-button'
+                        : 'primary-button'
+                    }
+                    onClick={() => {
+                      if (videoModelSocketActive) {
+                        videoModelRuntime.disconnect(node.id);
+                      } else {
+                        videoModelRuntime.connect(node.id);
+                      }
+                    }}
+                  >
+                    {videoModelSocketActive
+                      ? 'Disconnect'
+                      : 'Connect stream'}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={
+                    videoModelSession.state === 'connecting' ||
+                    videoModelSession.state === 'generating'
+                  }
+                  onClick={() => void videoModelRuntime.generate(node.id)}
+                >
+                  {videoModelSession.state === 'generating'
+                    ? 'Generating…'
+                    : videoModelConfig.transport === 'websocket'
+                      ? 'Request frame'
+                      : 'Generate'}
+                </button>
+              </div>
+              <p className="input-privacy-note">
+                Keys stay in memory and are never saved in the graph. Prompts,
+                keys, and directly streamed camera frames are sent only to the
+                endpoint you enter.
+              </p>
+            </>
+          )}
         </section>
       ) : null}
 
@@ -237,6 +388,85 @@ export function Inspector({
       </div>
     </aside>
   );
+}
+
+function SessionKeyField({
+  hasCredential,
+  onCommit,
+}: {
+  hasCredential: boolean;
+  onCommit: (credential: string) => void;
+}) {
+  const [credential, setCredential] = useState('');
+  const canSubmit = credential.length > 0 || hasCredential;
+  return (
+    <form
+      className="model-key-field"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!canSubmit) {
+          return;
+        }
+        onCommit(credential);
+        setCredential('');
+      }}
+    >
+      <label>
+        <span>Session API key</span>
+        <input
+          type="password"
+          autoComplete="off"
+          value={credential}
+          placeholder={
+            hasCredential
+              ? 'Key set for this endpoint'
+              : 'Optional bearer token'
+          }
+          onChange={(event) => setCredential(event.currentTarget.value)}
+        />
+      </label>
+      <button type="submit" className="text-button" disabled={!canSubmit}>
+        {credential ? 'Apply key' : hasCredential ? 'Clear key' : 'Apply key'}
+      </button>
+    </form>
+  );
+}
+
+function modelStateLabel(state: VideoModelSessionState): string {
+  switch (state) {
+    case 'preview':
+      return 'Local preview';
+    case 'connecting':
+      return 'Connecting';
+    case 'live':
+      return 'Stream live';
+    case 'generating':
+      return 'Generating';
+    case 'ready':
+      return 'Frame ready';
+    case 'error':
+      return 'Connection error';
+    default:
+      return 'Not connected';
+  }
+}
+
+function modelStateDescription(
+  state: VideoModelSessionState,
+  acceptsCameraFrames: boolean,
+): string {
+  if (state === 'live') {
+    return acceptsCameraFrames
+      ? 'Prompt updates and paced camera frames are streaming to the model worker.'
+      : 'Prompt updates are live. The worker can stream generated image frames back.';
+  }
+  if (state === 'ready') {
+    return 'The latest generated frame is now feeding this node output.';
+  }
+  if (state === 'generating') {
+    return 'Waiting for a generated image response.';
+  }
+  return 'Connect a trusted worker, or use HTTP mode for request-and-response generation.';
 }
 
 function videoStateLabel(state: VideoInputState): string {

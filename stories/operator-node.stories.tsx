@@ -157,6 +157,19 @@ export const InteractiveXYPad: Story = {
   },
 };
 
+export const TimingAndGenerationNodes: Story = {
+  args: {
+    kinds: ['beatClock', 'oscillator', 'aiPrompt', 'videoModel'],
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Timing, modulation, text instruction, and model connection nodes shown with their production ports and live inline controls.',
+      },
+    },
+  },
+};
+
 export const InactiveNode: Story = {
   args: {
     kinds: ['warp'],

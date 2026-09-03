@@ -36,18 +36,21 @@ The most common creative workflows seen across the real-time visual community ar
 
 ## Current proof of concept
 
-The app currently has a typed graph, demand-rooted execution plan, WebGL2 multipass renderer, editor history, bounded JSON persistence, live diagnostics, and responsive UI.
+The app currently opens the permission-free **Signal Graph** with three signal types, a demand-rooted execution plan, WebGL2 multipass renderer, editor history, bounded JSON persistence, live diagnostics, responsive UI, and an accessible New patch menu with Blank Canvas plus seven complete starter graphs. Its model node defaults to a built-in visual preview; compatible external adapters are optional.
 
 ### Implemented node catalog
 
 | Domain | Node | Current behavior |
 | --- | --- | --- |
-| Control | ✅ Time | Monotonic playback time with speed and offset |
+| Control | ✅ Transport Time | Monotonic playback time with speed and offset |
+| Control | ✅ Beat Clock | Tempo-locked phase, configurable beat pulse, and bar phase |
 | Control | ✅ Oscillator | Sine, triangle, saw, and square modulation with frequency, phase, amplitude, and offset |
-| Control | ✅ Pointer | Normalized pointer X and Y from the output stage |
+| Control | ✅ Pointer | Normalized X/Y, held state, and one-tick press/release pulses from the output stage |
 | Control | ✅ XY Pad | Editable normalized X and Y outputs with direct two-axis control inside the node |
 | Control | ✅ Audio Level | Normalized energy with gain/floor controls; deterministic fallback until microphone access is explicitly enabled |
+| Text | ✅ AI Chat | Bounded positive/negative prompt authoring with a `text.utf8` prompt output |
 | Frame input | ✅ Video Input | Opt-in live camera frames with front/rear preference, cover/contain/stretch fit, and mirroring |
+| Frame model | ✅ Video Model | Built-in procedural visual preview plus compatible user-run WebSocket/HTTP adapter modes |
 | Frame source | ✅ Flow Field | Procedural animated color field with time and energy modulation |
 | Frame source | ✅ Cells | Procedural animated cellular field |
 | Frame process | ✅ Warp | Flowing coordinate distortion with a control input for amount |
@@ -60,12 +63,15 @@ The app currently has a typed graph, demand-rooted execution plan, WebGL2 multip
 
 - ✅ Searchable operator library and keyboard command palette.
 - ✅ Pan, zoom, select, move, connect, rewire, disconnect, duplicate, and delete.
-- ✅ Typed `control.f32` and `frame.rgba` ports.
+- ✅ Typed `control.f32`, `text.utf8`, and `frame.rgba` ports.
 - ✅ Parameter inspector with gesture-aware undo history.
-- ✅ All adjustable parameters remain visible as compact controls inside their nodes.
+- ✅ Numeric, select, and bounded text parameters remain visible as compact controls inside their nodes.
 - ✅ Direct two-axis XY control with independently connectable outputs, native axis sliders, keyboard interaction, and live axis values.
-- ✅ Play, pause, deterministic reset, FPS, and GPU-pass diagnostics.
+- ✅ Play, pause, deterministic reset, display-synced/60/30 fps monitor pacing,
+  rolling FPS, and GPU-pass diagnostics.
+- ✅ Beat/bar timing and pointer position/held/press/release signals.
 - ✅ Explicit microphone and camera permission controls.
+- ✅ AI Chat → Video Model text routing, built-in visual preview, session-only model credentials, and a bounded compatible adapter connector.
 - ✅ Fullscreen output.
 - ✅ Versioned local autosave and transactional JSON import/export.
 - ✅ Graph size, file size, resolution, pixel count, render-target, and pass budgets.
@@ -80,6 +86,7 @@ Adding a node should start with its data contract. The renderer can change from 
 | --- | --- | --- |
 | `control.f32` | ✅ | A scalar sampled once per visual frame |
 | `frame.rgba` | ✅ | A color texture in the current working color space |
+| `text.utf8` | ✅ | Bounded text, currently used for prompt routing |
 | `control.bool` | 🚧 | Gates, toggles, comparisons, and device buttons |
 | `event.trigger` | 🚧 | Discrete events that must not be confused with a sustained value |
 | `control.vec2/3/4` | 🚧 | Coordinates, color, multi-axis sensors, and packed controls |
@@ -87,7 +94,6 @@ Adding a node should start with its data contract. The renderer can change from 
 | `audio.spectrum` | 🧭 | Frequency bins with sample rate, FFT size, and window metadata |
 | `data.table` | 🧭 | Rows/columns for CSV, device maps, cues, and structured transforms |
 | `data.json` | 🧭 | Bounded structured messages and API responses |
-| `text.utf8` | 🧭 | Text rendering, labels, paths, and protocol payloads |
 | `frame.depth` | 🧭 | Calibrated depth texture with unit/range metadata |
 | `geometry.points` | 🔬 | GPU point buffers for particles, point clouds, and instances |
 | `geometry.mesh` | 🔬 | Indexed geometry plus attributes |
@@ -102,7 +108,7 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 
 | Priority | Node/module | Purpose |
 | --- | --- | --- |
-| P0 | ✅ Time, Oscillator, Pointer, XY Pad, Audio Level | Existing modulation baseline |
+| P0 | ✅ Transport Time, Beat Clock, Oscillator, Pointer, XY Pad, Audio Level | Existing timing, interaction, and modulation baseline |
 | P1 | 🚧 Constant | Reusable numeric value with named output |
 | P1 | 🚧 Math | Add, subtract, multiply, divide, modulo, power, min, and max |
 | P1 | 🚧 Map Range | Remap, clamp, wrap, fold, and optionally ease a range |
@@ -121,7 +127,7 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 | P2 | 🧭 Step Sequencer | Rows of values/events clocked at a musical division |
 | P2 | 🧭 Curve / Keyframes | Editable automation with interpolation and loop regions |
 | P2 | 🧭 Spring | Position/velocity response for organic motion |
-| P2 | 🧭 Clock | BPM, beat, bar, phrase, swing, and transport state |
+| P2 | 🧭 Advanced Clock | Phrase, subdivision, swing, external sync, and transport state |
 | P2 | 🧭 Tap Tempo | Estimate tempo from user or device taps |
 | P2 | 🧭 Quantize | Align events or values to rhythmic/time grids |
 | P2 | 🧭 Cue List | Ordered show states with GO, back, hold, and notes |
@@ -136,6 +142,7 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 | --- | --- | --- |
 | P0 | ✅ Video Input | User-enabled camera texture for the current session |
 | P0 | ✅ Flow Field, Cells | Permission-free procedural sources |
+| P0 | ✅ Video Model | Built-in visual preview or latest bounded frame from a compatible user-run adapter |
 | P1 | 🚧 Solid | Flat color with alpha |
 | P1 | 🚧 Gradient | Linear, radial, conic, and multi-stop gradients |
 | P1 | 🚧 Noise | Value, simplex-like, cellular, curl, and fractal variants |
@@ -155,7 +162,7 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 | P2 | 🧭 WebRTC Receiver | Low-latency remote camera/screen source |
 | P2 | 🧩 Gateway Video | Frames delivered by a native gateway for specialist protocols |
 | P3 | 🔬 Shader Source | Constrained custom shader with declared uniforms and budgets |
-| P3 | 🔬 ML Image Source | Locally generated or remotely served model frames with queue policy |
+| P3 | 🔬 Advanced ML Image Source | Multiple inputs, capability negotiation, async jobs, provenance, and queue policy beyond the current Video Model connector |
 
 ### Frame processing and compositing
 
@@ -230,6 +237,8 @@ Visual-rate analysis and sample-rate audio are different runtimes. An `AudioWork
 
 | Priority | Node/module | Purpose |
 | --- | --- | --- |
+| P0 | ✅ AI Chat | Bounded positive/negative prompt authoring and `text.utf8` output |
+| P0 | ✅ Model Adapter Connector | `videobrain.frames.v1` HTTP/WebSocket exchange with memory-only credentials and bounded returned images |
 | P1 | 🚧 JSON Parse / Select | Convert bounded JSON into typed values |
 | P1 | 🚧 CSV / Table | Import, edit, filter, sort, join, and select columns |
 | P1 | 🚧 Text Format | Join, replace, number format, and templates |
@@ -254,6 +263,7 @@ Visual-rate analysis and sample-rate audio are different runtimes. An `AudioWork
 
 | Priority | Node/module | Purpose |
 | --- | --- | --- |
+| P0 | ✅ Video Model | Safe procedural preview plus latest-frame handoff from a compatible local/API adapter |
 | P1 | 🚧 Grayscale / Normalize | Predictable pre-processing for vision nodes |
 | P1 | 🚧 Frame Difference | Motion regions without a large model |
 | P1 | 🚧 Background Model | Foreground mask for fixed-camera installations |
@@ -376,6 +386,7 @@ Automation should use a typed command protocol—create node, connect ports, set
 | EEG/biometric | Brainwave band powers, heart rate, GSR | Mixed | 🧭 Standard BLE/Serial devices may be direct; proprietary dongles/SDKs need a bridge. Treat as sensitive data. |
 | HTTP APIs | REST, JSON, images | Direct, stable | 🧭 `fetch`; remote server must allow CORS. Use timeouts, quotas, and secret-safe backend proxies. |
 | WebSocket/SSE | Live controls, telemetry, show state | Direct, stable | 🧭 Browser client only. Authenticate, bound message size/rate, and define reconnect semantics. |
+| Model adapters | Local inference worker, hosted generation gateway | Direct to compatible adapter | ✅ Video Model supports a built-in no-network preview plus `videobrain.frames.v1` WebSocket/HTTP endpoints. Existing vendor APIs normally require translation; keys stay session-only. |
 | MQTT | Venue/IoT messages | Direct through WebSocket | 🧭 Requires a broker WebSocket endpoint and appropriate authentication. |
 | OSC | UDP messages from music/control tools | Gateway | 🧩 Browsers cannot open arbitrary UDP sockets. Translate OSC ↔ authenticated WebSocket/WebTransport locally. |
 | Raw TCP/UDP | Device protocols | Not direct | ⛔ Use a narrowly scoped bridge; never expose a general network socket proxy to untrusted patches. |
@@ -402,74 +413,81 @@ Keep these paths distinct in product language and implementation:
 3. **Browser to browser:** use WebRTC media/data. A real deployment needs a signaling service, TURN credentials, peer lifecycle, bitrate policy, and observability.
 4. **Browser to server/CDN:** encode with supported browser facilities, then hand off to a service designed for distribution and archival.
 5. **Browser to venue protocols:** terminate WebSocket/WebRTC at a local authenticated gateway that owns UDP, lighting, native video, SDI, or GPU-sharing APIs.
+6. **Browser to a model runtime:** connect only to a compatible, trusted adapter. Keep provider secrets behind that adapter, drop stale input, bound every returned image, and make camera transmission explicit. See [Model Connectors](MODEL_CONNECTORS.md).
 
 ## Example patch and preset library
 
-Arrows show the primary signal path. A semicolon separates modulation. Nodes not yet shipped are marked with their roadmap status. Each preset should include a thumbnail, short learning goal, required capabilities, expected GPU cost, output aspect, and a "restore original" action.
+Arrows show the primary signal path. A semicolon separates modulation. Nodes not yet shipped are marked with their roadmap status. The current New patch menu ships Blank Canvas plus seven named examples below: Full Studio, Beat-Synced Color, Pointer Bend, Camera Dream, Mic Pulse Trails, Two-World Mixer, and Prompted Visual Preview. Choosing one is an undoable, validated graph replacement; it stops device/model sessions and clears transient credentials. A future gallery should add thumbnails, learning goals, required capabilities, expected GPU cost, output aspect, and a "restore original" action.
 
 ### Beginner: learn one idea at a time
 
-1. **Signal Garden — available now**
+1. **Full Studio — available in New patch**
 
-   `Time → Flow Field → Warp → Blend(A); Cells → Blend(B) → Trails → Color Grade → Display`
+   `Transport Time → Beat Clock → Oscillator; Flow Field + Cells/Warp → Blend → Trails → Color Grade → Video Model → Display; AI Chat → Video Model.Prompt`
 
-   Learn source/process/output flow and control modulation.
+   Tour all three shipped signal types. Video Model begins in its built-in procedural preview and needs no model service.
 
-2. **First Oscillator — available now**
+2. **Beat-Synced Color — available in New patch**
 
-   `Flow Field → Color Grade → Display; Oscillator → Color Grade.Hue`
+   `Transport Time → Beat Clock → Oscillator; Flow Field → Warp → Trails → Display`
 
    Change waveform and frequency to see one control signal clearly.
 
-3. **Pointer Bend — available now**
+3. **Pointer Bend — available in New patch**
 
-   `Cells → Warp → Display; Pointer.X → Warp.Amount`
+   `Flow Field → Warp → Color Grade → Display; Pointer.X → Warp.Amount; Pointer.Y/Held → Color Grade`
 
    Introduces direct interaction without a permission prompt.
 
-4. **Two-axis Color Ride — available now**
+4. **Two-axis Color Ride — available as a manual recipe**
 
    `Flow Field → Color Grade → Display; XY Pad.X → Color Grade.Hue; XY Pad.Y → Color Grade.Exposure`
 
    Drag inside one node to perform two independently patchable values at once.
 
-5. **Camera Dream — available now**
+5. **Camera Dream — available in New patch**
 
    `Video Input → Warp → Trails → Color Grade → Display; Oscillator → Warp.Amount`
 
    Demonstrates explicit camera start, live texture upload, feedback, and mirroring.
 
-6. **Mic Pulse — available now**
+6. **Mic Pulse Trails — available in New patch**
 
    `Flow Field → Color Grade → Display; Audio Level → Flow Field.Energy`
 
    Works with a demo signal first; enable the microphone only when desired.
 
-7. **Two Worlds — available now**
+7. **Two-World Mixer — available in New patch**
 
    `Flow Field → Blend.A; Cells → Blend.B → Display; Oscillator → Blend.Mix`
 
    Compare blend modes and slow automatic crossfades.
 
-8. **Poster Maker — P1**
+8. **Prompted Visual Preview — available in New patch**
+
+   `AI Chat → Video Model.Prompt; Flow Field → Video Model.Source → Display`
+
+   Edit bounded prompt text and explore strength, guidance, and seed while the safe built-in preview makes no network request.
+
+9. **Poster Maker — P1**
 
    `Gradient 🚧 → Text 🚧 → Composite 🚧 → Color Grade → Display`
 
    A still-first exercise suitable for screenshots.
 
-9. **Feedback Basics — available now**
+10. **Feedback Basics — available as a manual recipe**
 
    `Cells → Warp → Trails → Display; Oscillator → Trails.Feedback`
 
    Explains why retained state differs from a normal graph cycle.
 
-10. **Shape Rhythm — P1**
+11. **Shape Rhythm — P1**
 
    `Shape 🚧 → Transform 2D 🚧 → Display; Oscillator → Transform.Rotate`
 
    Covers pivots and mapped modulation.
 
-11. **Image Remix — P1**
+12. **Image Remix — P1**
 
     `Image File 🚧 → Kaleidoscope 🚧 → Color Grade → Display`
 
@@ -523,7 +541,13 @@ Arrows show the primary signal path. A semicolon separates modulation. Nodes not
 
 12. **Touring Show Preflight — P2**
 
-    `Cue Stack 🧭 + Asset Bin 🚧 + Device Status 🧭 → Preflight panel`; verifies assets, devices, permissions, resolution, and network before GO.
+   `Cue Stack 🧭 + Asset Bin 🚧 + Device Status 🧭 → Preflight panel`; verifies assets, devices, permissions, resolution, and network before GO.
+
+13. **Compatible Model Adapter Lab — available connector / external adapter**
+
+    `AI Chat → Video Model.Prompt; optional Video Input → Video Model.Source → Display`
+
+    Start in Preview, then connect a trusted user-run `videobrain.frames.v1` adapter. Compare HTTP one-shot output with WebSocket frames, verify the visible destination, and demonstrate that the API key is not persisted.
 
 ### Interactive installation and spatial work
 
@@ -673,6 +697,7 @@ Device and network nodes are capabilities, not ordinary values.
 | Biometrics | Treat face, body, voice, EEG, heart rate, and presence as sensitive. Do not retain or transmit by default. |
 | Remote assets | Enforce size/type/time limits and explain CORS failures. Avoid leaking credentials in project files. |
 | Network inputs | Authenticate where appropriate; cap message bytes/rate/queue depth; validate shape before graph state. |
+| Model connector | State clearly that Preview is not inference; require a compatible adapter; keep keys in memory; show the destination; send a camera only through an explicit live connection; require HTTPS/WSS for API mode and credentials, with plain transport limited to credential-free Local loopback use. |
 | Bridge | Bind locally by default, use short-lived pairing, origin checks, capability allowlists, and visible armed/output states. |
 | Lighting/laser/show control | Include master dimmer/blackout/manual override and explicit arming. Safety-critical interlocks stay outside the browser. |
 | Scripts/shaders/packages | Sandbox, declare capabilities, enforce resource budgets, and never silently fall back to unrestricted evaluation. |
@@ -690,6 +715,7 @@ The app should include a capability center listing which nodes want camera, micr
 - Pool compatible render targets only after lifetime analysis proves reuse is safe.
 - Precompile shaders and warm media/ML nodes before a live cue becomes program output.
 - Drop stale video/ML/network work. A live system should prefer the newest result over an ever-growing queue.
+- Keep model adapters capability/version negotiated, preserve a no-network fallback, and report warmup, queue depth, latency, and dropped inputs before expanding the protocol.
 
 ### Graceful degradation
 
@@ -750,6 +776,7 @@ The app should include a capability center listing which nodes want camera, micr
 ### Phase 1 — durable browser instrument (P1)
 
 - Harden camera input and add screen/image/video-file sources.
+- Harden the current model adapter contract with conformance fixtures, cancellation, capability negotiation, and explicit source-upload semantics.
 - Add Constant, Math, Map Range, Smooth, Compare, Trigger, and Vector controls.
 - Add Transform, Crop/Fit, Resize, Blur, Levels, Key/Mask, Composite, Switch, and Displace.
 - Add spectrum/band/onset analysis while keeping sample-rate work out of the visual frame loop.

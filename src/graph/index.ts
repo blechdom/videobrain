@@ -58,3 +58,10 @@ export {
   type GraphIssueCode,
 } from './compiler';
 export { DEFAULT_GRAPH, createDefaultGraph } from './defaultGraph';
+export {
+  GRAPH_PRESETS,
+  createGraphPreset,
+  getGraphPreset,
+  type GraphPreset,
+  type GraphPresetId,
+} from './presets';

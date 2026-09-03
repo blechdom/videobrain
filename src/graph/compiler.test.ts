@@ -56,12 +56,14 @@ describe('graph compiler', () => {
   it('compiles the permission-free default graph end to end', () => {
     const compiled = compileGraph(createDefaultGraph());
 
-    expect(compiled.nodes).toHaveLength(12);
+    expect(compiled.nodes).toHaveLength(15);
     expect(compiled.controlNodes.map(({ node: item }) => item.kind)).toEqual([
       'audioLevel',
       'time',
+      'beatClock',
       'xyPad',
       'pointer',
+      'aiPrompt',
       'oscillator',
     ]);
     expect(compiled.frameNodes.map(({ node: item }) => item.kind)).toEqual([
@@ -71,6 +73,7 @@ describe('graph compiler', () => {
       'blend',
       'trails',
       'colorGrade',
+      'videoModel',
     ]);
     expect(compiled.displayNodes.map(({ node: item }) => item.id)).toEqual([
       'display',
@@ -78,8 +81,46 @@ describe('graph compiler', () => {
     expect(compiled.nodes.some(({ node: item }) => item.kind === 'audioLevel')).toBe(
       true,
     );
-    expect(compiled.document.nodes).toHaveLength(12);
+    expect(compiled.document.nodes).toHaveLength(15);
     expect(compiled.reachableNodeIds.has('pointer')).toBe(true);
+    expect(compiled.reachableNodeIds.has('prompt')).toBe(true);
+    expect(compiled.reachableNodeIds.has('beat')).toBe(true);
+  });
+
+  it('binds text instructions to a model without mixing signal types', () => {
+    const document = graph(
+      [
+        node('aiPrompt', 'chat'),
+        node('videoModel', 'model'),
+        node('display', 'display'),
+      ],
+      [
+        edge('chat-model', 'chat', 'prompt', 'model', 'prompt'),
+        edge('model-display', 'model', 'frame', 'display', 'source'),
+      ],
+    );
+    const compiled = compileGraph(document);
+    const model = compiled.nodes.find(({ node: item }) => item.id === 'model');
+
+    expect(compiled.controlNodes.map(({ node: item }) => item.id)).toEqual([
+      'chat',
+    ]);
+    expect(compiled.frameNodes.map(({ node: item }) => item.id)).toEqual([
+      'model',
+    ]);
+    expect(model?.inputs.prompt).toEqual({
+      edgeId: 'chat-model',
+      sourceNodeId: 'chat',
+      sourcePortId: 'prompt',
+      type: 'text.utf8',
+    });
+    expect(
+      validateConnection(
+        graph(document.nodes, [document.edges[1] as GraphEdge]),
+        { nodeId: 'chat', portId: 'prompt' },
+        { nodeId: 'model', portId: 'prompt' },
+      ),
+    ).toEqual({ valid: true });
   });
 
   it('binds both XY pad outputs to independent control inputs', () => {
@@ -210,6 +251,33 @@ describe('graph compiler', () => {
       ],
     );
     expect(issueCodes(frameIntoControl)).toContain('port-type-mismatch');
+
+    const textIntoControl = graph(
+      [
+        node('aiPrompt', 'chat'),
+        node('oscillator', 'oscillator'),
+        node('plasma', 'source'),
+        node('display', 'display'),
+      ],
+      [
+        edge('bad-text', 'chat', 'prompt', 'oscillator', 'phase'),
+        edge('source-display', 'source', 'frame', 'display', 'source'),
+      ],
+    );
+    expect(issueCodes(textIntoControl)).toContain('port-type-mismatch');
+
+    const controlIntoText = graph(
+      [
+        node('time', 'clock'),
+        node('videoModel', 'model'),
+        node('display', 'display'),
+      ],
+      [
+        edge('bad-control', 'clock', 'value', 'model', 'prompt'),
+        edge('model-display', 'model', 'frame', 'display', 'source'),
+      ],
+    );
+    expect(issueCodes(controlIntoText)).toContain('port-type-mismatch');
   });
 
   it('reports missing nodes and ports without crashing', () => {

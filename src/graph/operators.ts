@@ -39,21 +39,54 @@ const selectParam = (
   defaultValue,
   options: options.map((value) => ({
     value,
-    label: value.charAt(0).toUpperCase() + value.slice(1),
+    label:
+      ({ api: 'API', http: 'HTTP', websocket: 'WebSocket' })[value] ??
+      value.charAt(0).toUpperCase() + value.slice(1),
   })),
+});
+
+const textParam = (
+  label: string,
+  defaultValue: string,
+  maxLength: number,
+  options: { placeholder?: string; multiline?: boolean } = {},
+): OperatorParamDefinition => ({
+  type: 'text',
+  label,
+  defaultValue,
+  maxLength,
+  ...options,
 });
 
 const definitions = [
   {
     kind: 'time',
-    title: 'Time',
-    summary: 'A continuously advancing control signal.',
+    title: 'Transport Time',
+    summary: 'Playback time in seconds, with speed and offset controls.',
     domain: 'control',
     inputs: [],
     outputs: [port('value', 'Time', 'control.f32')],
     params: {
       speed: numberParam('Speed', 1, -4, 4, 0.01),
       offset: numberParam('Offset', 0, -60, 60, 0.01),
+    },
+  },
+  {
+    kind: 'beatClock',
+    title: 'Beat Clock',
+    summary: 'Tempo-locked phase, beat pulse, and bar phase signals.',
+    domain: 'control',
+    inputs: [port('time', 'Time', 'control.f32', true)],
+    outputs: [
+      port('phase', 'Phase', 'control.f32'),
+      port('beat', 'Beat', 'control.f32'),
+      port('bar', 'Bar', 'control.f32'),
+    ],
+    params: {
+      bpm: numberParam('BPM', 120, 20, 300, 1),
+      beatsPerBar: numberParam('Beats / bar', 4, 1, 16, 1),
+      pulseWidth: numberParam('Pulse width', 0.12, 0.01, 0.95, 0.01),
+      offset: numberParam('Beat offset', 0, -16, 16, 0.01),
     },
   },
   {
@@ -79,14 +112,45 @@ const definitions = [
   {
     kind: 'pointer',
     title: 'Pointer',
-    summary: 'Normalized pointer coordinates from the stage.',
+    summary: 'Stage coordinates plus held, press, and release signals.',
     domain: 'control',
     inputs: [],
     outputs: [
       port('x', 'X', 'control.f32'),
       port('y', 'Y', 'control.f32'),
+      port('down', 'Held', 'control.f32'),
+      port('press', 'Press', 'control.f32'),
+      port('release', 'Release', 'control.f32'),
     ],
     params: {},
+  },
+  {
+    kind: 'aiPrompt',
+    title: 'AI Chat',
+    summary: 'Live text instructions for a connected generative model.',
+    domain: 'control',
+    inputs: [],
+    outputs: [port('prompt', 'Prompt', 'text.utf8')],
+    params: {
+      text: textParam(
+        'Prompt',
+        'A luminous living landscape, fluid motion, cinematic color',
+        4_000,
+        {
+          placeholder: 'Describe the evolving image…',
+          multiline: true,
+        },
+      ),
+      negative: textParam(
+        'Avoid',
+        'flicker, text, watermark, compression artifacts',
+        2_000,
+        {
+          placeholder: 'What should the model avoid?',
+          multiline: true,
+        },
+      ),
+    },
   },
   {
     kind: 'xyPad',
@@ -132,6 +196,34 @@ const definitions = [
       facing: selectParam('Camera', 'user', ['user', 'environment']),
       fit: selectParam('Fit', 'cover', ['cover', 'contain', 'stretch']),
       mirror: selectParam('Mirror', 'on', ['on', 'off']),
+    },
+  },
+  {
+    kind: 'videoModel',
+    title: 'Video Model',
+    summary: 'Receives generated frames from a compatible worker or API gateway.',
+    domain: 'frame',
+    inputs: [
+      port('source', 'Source', 'frame.rgba', true),
+      port('prompt', 'Prompt', 'text.utf8'),
+    ],
+    outputs: [port('frame', 'Frame', 'frame.rgba')],
+    params: {
+      runtime: selectParam('Runtime', 'preview', ['preview', 'local', 'api']),
+      transport: selectParam('Transport', 'websocket', ['websocket', 'http']),
+      endpoint: textParam(
+        'Endpoint',
+        'ws://127.0.0.1:8189/v1/stream',
+        2_048,
+        { placeholder: 'wss://… or https://…' },
+      ),
+      model: textParam('Model', 'realtime-video', 256, {
+        placeholder: 'Model or workflow ID',
+      }),
+      strength: numberParam('Strength', 0.7, 0, 1, 0.01),
+      guidance: numberParam('Guidance', 1.2, 0, 20, 0.1),
+      seed: numberParam('Seed', 42, 0, 65_535, 1),
+      inputFps: numberParam('Input FPS', 12, 1, 30, 1),
     },
   },
   {

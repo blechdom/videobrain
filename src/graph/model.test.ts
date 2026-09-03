@@ -80,6 +80,33 @@ describe('graph document model', () => {
     expect(() => parseGraphDocument(graph)).toThrow(/must be one of/);
   });
 
+  it('accepts bounded text parameters and rejects invalid prompt values', () => {
+    const prompt = createGraphNode(
+      'aiPrompt',
+      { x: 0, y: 0 },
+      { text: 'x'.repeat(4_000), negative: '' },
+      'prompt',
+    );
+    const document: GraphDocument = {
+      schemaVersion: GRAPH_SCHEMA_VERSION,
+      nodes: [prompt],
+      edges: [],
+    };
+
+    expect(parseGraphDocument(document).nodes[0]?.params).toMatchObject({
+      text: 'x'.repeat(4_000),
+      negative: '',
+    });
+
+    prompt.params.text = 'x'.repeat(4_001);
+    expect(() => parseGraphDocument(document)).toThrow(
+      /text must be at most 4000 characters/,
+    );
+
+    prompt.params.text = 42;
+    expect(() => parseGraphDocument(document)).toThrow(/text must be text/);
+  });
+
   it('rejects unsupported document fields and overlong identifiers', () => {
     const graph = createDefaultGraph() as GraphDocument & {
       extra?: boolean;

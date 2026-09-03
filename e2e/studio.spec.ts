@@ -123,16 +123,229 @@ test('boots a live GPU composition without permissions', async ({ page }) => {
     .toBeGreaterThan(1);
 });
 
+test('starts blank and example graphs from the New patch menu', async ({
+  page,
+}) => {
+  const trigger = page.getByRole('button', { name: 'New patch' });
+  await page
+    .locator('article[aria-label="Flow Field node"] .operator-node-header')
+    .click();
+  await expect(
+    page.getByRole('complementary', { name: 'Flow Field inspector' }),
+  ).toBeVisible();
+
+  await trigger.click();
+  const menu = page.getByRole('menu', { name: 'New patch starters' });
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('menuitem')).toHaveCount(8);
+  await expect(
+    menu.getByRole('menuitem', { name: /Blank Canvas/ }),
+  ).toBeFocused();
+  await expect(
+    menu.getByRole('menuitem', { name: /Beat-Synced Color/ }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: /Camera Dream/ }),
+  ).toBeVisible();
+
+  await page.keyboard.press('Tab');
+  await expect(
+    page.getByRole('button', { name: 'Import project' }),
+  ).toBeFocused();
+  await trigger.click();
+  await page.keyboard.press('Shift+Tab');
+  await expect(page.getByRole('button', { name: 'Pause' })).toBeFocused();
+  await trigger.click();
+
+  let confirmation = '';
+  page.once('dialog', (dialog) => {
+    confirmation = dialog.message();
+    void dialog.dismiss();
+  });
+  await menu.getByRole('menuitem', { name: /Blank Canvas/ }).click();
+  expect(confirmation).toContain('Blank Canvas');
+  expect(confirmation).toContain(
+    'live inputs and model connections will stop and must be restarted',
+  );
+  await expect(page.getByText(/15 nodes/).first()).toBeVisible();
+
+  await trigger.click();
+  page.once('dialog', (dialog) => {
+    void dialog.accept();
+  });
+  await page
+    .getByRole('menuitem', { name: /Beat-Synced Color/ })
+    .click();
+
+  await expect(page.getByText(/7 nodes/).first()).toBeVisible();
+  await expect(page.getByText(/8 links/).first()).toBeVisible();
+  await expect(page.getByText('Nothing selected')).toBeVisible();
+  await expect(page.getByText('Beat-Synced Color loaded.')).toBeVisible();
+  await expect(page.locator('canvas.preview-canvas')).toHaveAttribute(
+    'data-rendered',
+    'true',
+  );
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByText(/15 nodes/).first()).toBeVisible();
+
+  await trigger.click();
+  page.once('dialog', (dialog) => {
+    void dialog.accept();
+  });
+  await page.getByRole('menuitem', { name: /Blank Canvas/ }).click();
+  await expect(page.getByText(/0 nodes/).first()).toBeVisible();
+  await expect(page.getByText(/0 links/).first()).toBeVisible();
+  await expect(page.getByText('Graph healthy')).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = localStorage.getItem('videobrain.project');
+        if (!raw) {
+          return -1;
+        }
+        const saved = JSON.parse(raw) as {
+          document?: { nodes?: unknown[] };
+        };
+        return saved.document?.nodes?.length ?? -1;
+      }),
+    )
+    .toBe(0);
+
+  await page.reload();
+  await expect(page.getByText(/0 nodes/).first()).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(trigger).toBeVisible();
+  await trigger.click();
+  const mobileMenuBounds = await menu.boundingBox();
+  expect(mobileMenuBounds).not.toBeNull();
+  expect(mobileMenuBounds?.x ?? -1).toBeGreaterThanOrEqual(0);
+  expect(
+    (mobileMenuBounds?.x ?? 0) + (mobileMenuBounds?.width ?? 391),
+  ).toBeLessThanOrEqual(390);
+});
+
+test('stops active device sessions before replacing a patch', async ({
+  page,
+}) => {
+  await page
+    .locator('article[aria-label="Audio Level node"] .operator-node-header')
+    .click();
+  let inspector = page.getByRole('complementary', {
+    name: 'Audio Level inspector',
+  });
+  await inspector.getByRole('button', { name: 'Enable microphone' }).click();
+  await expect(
+    inspector.getByRole('button', { name: 'Stop microphone' }),
+  ).toBeVisible();
+
+  await page.getByTitle('Add Video Input').click();
+  inspector = page.getByRole('complementary', {
+    name: 'Video Input inspector',
+  });
+  await inspector.getByRole('button', { name: 'Enable camera' }).click();
+  await expect(inspector.getByText('Camera live', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'New patch' }).click();
+  page.once('dialog', (dialog) => {
+    void dialog.accept();
+  });
+  await page.getByRole('menuitem', { name: /Camera Dream/ }).click();
+  await expect(page.getByText(/8 nodes/).first()).toBeVisible();
+  await expect
+    .poll(() =>
+      page.locator('video.video-input-element').evaluate(
+        (video) => (video as HTMLVideoElement).srcObject === null,
+      ),
+    )
+    .toBe(true);
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await page
+    .locator('article[aria-label="Audio Level node"] .operator-node-header')
+    .click();
+  await expect(
+    page
+      .getByRole('complementary', { name: 'Audio Level inspector' })
+      .getByRole('button', { name: 'Enable microphone' }),
+  ).toBeVisible();
+
+  await page
+    .locator('article[aria-label="Video Input node"] .operator-node-header')
+    .last()
+    .click();
+  await expect(
+    page
+      .getByRole('complementary', { name: 'Video Input inspector' })
+      .getByText('Camera off', { exact: true }),
+  ).toBeVisible();
+});
+
+test('switches monitor output between display sync and fixed frame rates', async ({
+  page,
+}) => {
+  const monitor = page.getByRole('region', { name: 'Live output' });
+  const pacing = monitor.getByRole('combobox', {
+    name: 'Monitor frame pacing',
+  });
+  const canvas = monitor.locator('canvas.preview-canvas');
+
+  await expect(pacing).toHaveValue('display');
+  await expect(pacing.getByRole('option', { name: 'Display sync' })).toBeAttached();
+  await expect(pacing.getByRole('option', { name: '60 fps' })).toBeAttached();
+  await expect(pacing.getByRole('option', { name: '30 fps' })).toBeAttached();
+  await expect(canvas).toHaveAttribute('data-frame-pacing', 'display');
+
+  const frameBeforeFixedRate = Number(await canvas.getAttribute('data-frame'));
+  await pacing.selectOption('30-fps');
+  await expect(pacing).toHaveValue('30-fps');
+  await expect(canvas).toHaveAttribute('data-frame-pacing', '30-fps');
+  await expect
+    .poll(async () => Number(await canvas.getAttribute('data-frame')))
+    .toBeGreaterThan(frameBeforeFixedRate);
+
+  await pacing.selectOption('60-fps');
+  await expect(canvas).toHaveAttribute('data-frame-pacing', '60-fps');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(pacing).toBeVisible();
+  const newPatchTrigger = page.getByRole('button', { name: 'New patch' });
+  await expect(newPatchTrigger).toBeVisible();
+  await newPatchTrigger.click();
+  const newPatchMenu = page.getByRole('menu', { name: 'New patch starters' });
+  await expect(newPatchMenu).toBeVisible();
+  expect(
+    await newPatchMenu.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return (
+        bounds.left >= 0 &&
+        bounds.top >= 0 &&
+        bounds.right <= window.innerWidth &&
+        bounds.bottom <= window.innerHeight
+      );
+    }),
+  ).toBe(true);
+  await page.keyboard.press('Escape');
+  expect(
+    await monitor.locator('.preview-header').evaluate(
+      (header) => header.scrollWidth <= header.clientWidth,
+    ),
+  ).toBe(true);
+});
+
 test('keeps inline values visible and edits the XY pad as one undo gesture', async ({
   page,
 }) => {
-  const timeNode = page.locator('article[aria-label="Time node"]');
+  const timeNode = page.locator(
+    'article[aria-label="Transport Time node"]',
+  );
   await expect(timeNode).not.toHaveClass(/selected/);
   await expect(
-    timeNode.getByRole('slider', { name: 'Time Speed' }),
+    timeNode.getByRole('slider', { name: 'Transport Time Speed' }),
   ).toBeVisible();
   await expect(
-    timeNode.getByRole('slider', { name: 'Time Offset' }),
+    timeNode.getByRole('slider', { name: 'Transport Time Offset' }),
   ).toBeVisible();
 
   const xyNode = page.locator('article[aria-label="XY Pad node"]');
@@ -169,7 +382,7 @@ test('starts camera input only after opt-in and renders its live frame', async (
   await expect.poll(() => cameraRequestCount(page)).toBe(0);
 
   await page.getByTitle('Add Video Input').click();
-  await expect(page.getByText(/13 nodes/).first()).toBeVisible();
+  await expect(page.getByText(/16 nodes/).first()).toBeVisible();
   const inspector = page.getByRole('complementary', {
     name: 'Video Input inspector',
   });
@@ -206,9 +419,9 @@ test('starts camera input only after opt-in and renders its live frame', async (
   await expect(inspector.getByText('Camera live', { exact: true })).toBeVisible();
 
   const links = page.locator('[data-testid^="rf__edge-"]');
-  await expect(links).toHaveCount(15);
+  await expect(links).toHaveCount(18);
   const initialLinkCount = await links.count();
-  const previousDisplayLink = page.getByTestId('rf__edge-grade-display');
+  const previousDisplayLink = page.getByTestId('rf__edge-model-display');
   await selectLink(page, previousDisplayLink);
   await page.keyboard.press('Delete');
   await expect(previousDisplayLink).toHaveCount(0);
@@ -253,9 +466,9 @@ test('opens in-app help with current nodes, I/O guidance, and contribution link'
   page,
 }) => {
   await page.getByRole('button', { name: 'Help & about' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Build a live signal patch' });
+  const dialog = page.getByRole('dialog', { name: 'Explore the Signal Graph' });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText('Two signal types, one graph')).toBeVisible();
+  await expect(dialog.getByText('Three signal types, one graph')).toBeVisible();
   await expect(dialog.getByText('Video Input', { exact: true })).toBeVisible();
   await expect(
     dialog.getByRole('heading', {
@@ -275,7 +488,7 @@ test('opens in-app help with current nodes, I/O guidance, and contribution link'
 
 test('adds, inspects, edits, and undoes a node', async ({ page }) => {
   await page.getByTitle('Add Flow Field').click();
-  await expect(page.getByText(/13 nodes/).first()).toBeVisible();
+  await expect(page.getByText(/16 nodes/).first()).toBeVisible();
 
   const addedNode = page.locator('article[aria-label="Flow Field node"]').last();
   await expect(page.getByRole('complementary', { name: 'Flow Field inspector' })).toBeVisible();
@@ -304,7 +517,7 @@ test('adds, inspects, edits, and undoes a node', async ({ page }) => {
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(inlineScale).toHaveValue(String(before));
   await page.getByRole('button', { name: 'Undo' }).click();
-  await expect(page.getByText(/12 nodes/).first()).toBeVisible();
+  await expect(page.getByText(/15 nodes/).first()).toBeVisible();
 });
 
 test('opens searchable node creation from the keyboard', async ({ page }) => {
@@ -322,7 +535,7 @@ test('selects and deletes a link from the graph', async ({ page }) => {
   const initialLinkCount = await links.count();
   expect(initialLinkCount).toBeGreaterThan(0);
 
-  const link = page.getByTestId('rf__edge-grade-display');
+  const link = page.getByTestId('rf__edge-model-display');
   await selectLink(page, link);
 
   await page.keyboard.press('Delete');
@@ -368,7 +581,7 @@ test('rewires a selected link to a compatible output', async ({ page }) => {
 
 test('explains why an incompatible link drop was rejected', async ({ page }) => {
   const source = page
-    .locator('article[aria-label="Time node"]')
+    .locator('article[aria-label="Transport Time node"]')
     .getByLabel('Time output, control.f32');
   const target = page
     .locator('article[aria-label="Warp node"]')
@@ -398,7 +611,7 @@ test('explains why an incompatible link drop was rejected', async ({ page }) => 
 test('autosaves project changes across reloads', async ({ page }) => {
   await page.getByTitle('Add Audio Level').click();
   await page.reload();
-  await expect(page.getByText(/13 nodes/).first()).toBeVisible();
+  await expect(page.getByText(/16 nodes/).first()).toBeVisible();
   await expect(page.getByText('Graph healthy')).toBeVisible();
-  await expect(page.getByText('Signal Garden / saved')).toBeVisible();
+  await expect(page.getByText('Signal Graph / saved')).toBeVisible();
 });

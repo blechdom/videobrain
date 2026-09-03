@@ -108,6 +108,19 @@ export function normalizeNodeParams(
       continue;
     }
 
+    if (definition.type === 'text') {
+      if (typeof param !== 'string') {
+        throw new GraphDocumentError(`${path}.${key} must be text.`);
+      }
+      if (param.length > definition.maxLength) {
+        throw new GraphDocumentError(
+          `${path}.${key} must be at most ${definition.maxLength} characters.`,
+        );
+      }
+      params[key] = param;
+      continue;
+    }
+
     if (
       typeof param !== 'string' ||
       !definition.options.some(({ value: option }) => option === param)

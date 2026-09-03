@@ -135,6 +135,76 @@ void main() {
 }
 `;
 
+const videoModel = `#version 300 es
+precision highp float;
+
+in vec2 vUv;
+out vec4 outColor;
+
+uniform sampler2D uSource;
+uniform sampler2D uGenerated;
+uniform vec2 uResolution;
+uniform float uHasSource;
+uniform float uHasGenerated;
+uniform float uTime;
+uniform float uStrength;
+uniform float uGuidance;
+uniform float uSeed;
+
+float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32 + uSeed * 0.001);
+  return fract(p.x * p.y);
+}
+
+vec3 palette(float value) {
+  vec3 phase = vec3(0.02, 0.28, 0.58) + uSeed * 0.0001;
+  return 0.5 + 0.5 * cos(6.2831853 * (value + phase));
+}
+
+void main() {
+  if (uHasGenerated > 0.5) {
+    outColor = texture(uGenerated, vUv);
+    return;
+  }
+
+  vec2 p = vUv - 0.5;
+  p.x *= uResolution.x / max(uResolution.y, 1.0);
+  float grain = hash21(
+    floor(vUv * uResolution.xy * 0.22) + floor(uTime * 12.0)
+  );
+  float field =
+    sin((p.x * 3.1 + p.y * 2.3) * 3.0 + uTime * 0.77) +
+    cos(
+      length(p + vec2(sin(uTime * 0.19), cos(uTime * 0.23)) * 0.3) *
+      17.0
+    );
+  vec3 preview = palette(field * 0.08 + grain * 0.12 + uTime * 0.018);
+
+  if (uHasSource > 0.5) {
+    vec2 drift = vec2(
+      sin(vUv.y * 18.0 + uTime),
+      cos(vUv.x * 15.0 - uTime * 0.83)
+    ) * uStrength * 0.008;
+    vec3 source = texture(
+      uSource,
+      clamp(vUv + drift, 0.0, 1.0)
+    ).rgb;
+    float levels = mix(32.0, 7.0, clamp(uStrength, 0.0, 1.0));
+    source = floor(source * levels + 0.5) / levels;
+    float contrast = 1.0 + min(uGuidance, 8.0) * 0.035;
+    source = (source - 0.5) * contrast + 0.5;
+    preview = mix(
+      source,
+      preview * (0.45 + source * 0.8),
+      uStrength * 0.34
+    );
+  }
+
+  outColor = vec4(clamp(preview, 0.0, 1.0), 1.0);
+}
+`;
+
 const warp = `#version 300 es
 precision highp float;
 
@@ -252,6 +322,7 @@ void main() {
 
 export const FRAME_FRAGMENT_SHADERS: Partial<Record<NodeKind, string>> = {
   videoInput,
+  videoModel,
   plasma,
   cells,
   warp,

@@ -4,7 +4,6 @@ import {
   CircleHelp,
   CircleCheck,
   Download,
-  FilePlus2,
   Pause,
   Play,
   Plus,
@@ -16,7 +15,10 @@ import {
 import { ReactFlowProvider, useReactFlow } from '@xyflow/react';
 import {
   MAX_GRAPH_JSON_BYTES,
+  createGraphPreset,
+  getGraphPreset,
   tryCompileGraph,
+  type GraphPresetId,
   type GraphNode,
   type GraphParamValue,
   type NodeKind,
@@ -27,10 +29,12 @@ import { GraphEditor } from './components/GraphEditor';
 import { HelpDialog } from './components/HelpDialog';
 import type { OperatorFlowNode } from './components/OperatorNode';
 import { Inspector } from './components/Inspector';
+import { NewPatchMenu } from './components/NewPatchMenu';
 import { OperatorLibrary } from './components/OperatorLibrary';
 import { PreviewPanel } from './components/PreviewPanel';
 import { useAudioLevel } from './hooks/useAudioLevel';
 import { useVideoInput } from './hooks/useVideoInput';
+import { useVideoModel } from './hooks/useVideoModel';
 import {
   projectStore,
   useGraphDocument,
@@ -73,11 +77,12 @@ function Studio() {
   const endGesture = useProjectStore((state) => state.endGesture);
   const undo = useProjectStore((state) => state.undo);
   const redo = useProjectStore((state) => state.redo);
-  const resetProject = useProjectStore((state) => state.resetProject);
   const importProject = useProjectStore((state) => state.importProject);
   const exportProject = useProjectStore((state) => state.exportProject);
-  const { screenToFlowPosition } = useReactFlow<OperatorFlowNode>();
+  const { fitView, screenToFlowPosition } = useReactFlow<OperatorFlowNode>();
   const audio = useAudioLevel();
+  const audioInputState = audio.inputState;
+  const disableMicrophone = audio.disableMicrophone;
   const {
     inputState: videoInputState,
     errorMessage: videoInputError,
@@ -87,6 +92,11 @@ function Studio() {
     enableCamera,
     disableCamera,
   } = useVideoInput();
+  const videoModel = useVideoModel(
+    graphDocument,
+    videoInputState === 'live' ? videoElement : null,
+  );
+  const resetVideoModels = videoModel.resetAll;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toastTimerRef = useRef<number | undefined>(undefined);
   const previousGraphDocumentRef = useRef(graphDocument);
@@ -133,6 +143,13 @@ function Studio() {
       disableCamera();
     }
   }, [disableCamera, hasVideoInput, videoInputState]);
+
+  const hasAudioLevel = graphDocument.nodes.some((node) => node.kind === 'audioLevel');
+  useEffect(() => {
+    if (!hasAudioLevel && audioInputState !== 'demo') {
+      disableMicrophone();
+    }
+  }, [audioInputState, disableMicrophone, hasAudioLevel]);
 
   useEffect(() => {
     const previousDocument = previousGraphDocumentRef.current;
@@ -202,14 +219,43 @@ function Studio() {
     notify('Playback returned to frame zero.');
   }, [notify]);
 
-  const restoreDemo = useCallback(() => {
-    if (!window.confirm('Replace the current patch with the built-in composition?')) {
-      return;
-    }
-    resetProject();
-    setResetToken((token) => token + 1);
-    notify('Built-in composition restored.');
-  }, [notify, resetProject]);
+  const startPreset = useCallback(
+    (presetId: GraphPresetId) => {
+      const preset = getGraphPreset(presetId);
+      if (
+        !window.confirm(
+          'Replace the current patch with "' +
+            preset.title +
+            '"? The graph change can be undone, but live inputs and model ' +
+            'connections will stop and must be restarted.',
+        )
+      ) {
+        return;
+      }
+
+      disableCamera();
+      disableMicrophone();
+      resetVideoModels();
+      const result = importProject(createGraphPreset(presetId));
+      if (!result.ok) {
+        notify(result.error ?? 'The starter graph could not be loaded.', 'error');
+        return;
+      }
+      setResetToken((token) => token + 1);
+      window.requestAnimationFrame(() => {
+        void fitView({ padding: 0.12, minZoom: 0.45, maxZoom: 1.05 });
+      });
+      notify(preset.title + ' loaded.');
+    },
+    [
+      disableCamera,
+      disableMicrophone,
+      fitView,
+      importProject,
+      notify,
+      resetVideoModels,
+    ],
+  );
 
   const downloadProject = useCallback(() => {
     const blob = new Blob([exportProject()], { type: 'application/json' });
@@ -295,7 +341,7 @@ function Studio() {
         onUndo={undo}
         onRedo={redo}
         onAdd={() => setCommandOpen(true)}
-        onNew={restoreDemo}
+        onNew={startPreset}
         onImport={() => fileInputRef.current?.click()}
         onExport={downloadProject}
         onHelp={() => {
@@ -346,6 +392,7 @@ function Studio() {
             audioInputState={audio.inputState}
             videoInputState={videoInputState}
             videoSource={videoInputState === 'live' ? videoElement : null}
+            videoModelSources={videoModel.frames}
             meterLevel={audio.meterLevel}
             sampleAudioLevel={audio.sampleLevel}
             onRuntimeUpdate={setRuntime}
@@ -357,6 +404,8 @@ function Studio() {
             videoInputState={videoInputState}
             videoInputError={videoInputError}
             videoFacingMode={videoFacingMode}
+            graphDocument={graphDocument}
+            videoModelRuntime={videoModel}
             onParamChange={handleNodeParamChange}
             onGestureStart={beginGesture}
             onGestureEnd={endGesture}
@@ -401,7 +450,7 @@ interface TopbarProps {
   onUndo: () => void;
   onRedo: () => void;
   onAdd: () => void;
-  onNew: () => void;
+  onNew: (presetId: GraphPresetId) => void;
   onImport: () => void;
   onExport: () => void;
   onHelp: () => void;
@@ -438,7 +487,7 @@ function Topbar({
             className={`project-name persistence-${persistenceState}`}
             aria-live="polite"
           >
-            Signal Garden / {persistenceState === 'pending'
+            Signal Graph / {persistenceState === 'pending'
               ? 'saving…'
               : persistenceState === 'failed'
                 ? 'save failed'
@@ -476,10 +525,7 @@ function Topbar({
           </button>
         </div>
         <span className="toolbar-divider" />
-        <button type="button" className="icon-button optional-action" onClick={onNew} title="Restore built-in composition">
-          <FilePlus2 size={14} />
-          <span className="sr-only">Restore built-in composition</span>
-        </button>
+        <NewPatchMenu onSelect={onNew} />
         <button type="button" className="icon-button optional-action" onClick={onImport} title="Import project">
           <Upload size={14} />
           <span className="sr-only">Import project</span>
@@ -530,7 +576,9 @@ function Statusbar({
         <span className="status-item"><strong>{edgeCount}</strong> links</span>
       </div>
       <div className="status-cluster">
-        <span className="status-item"><strong>{runtime ? Math.round(runtime.fps) : '—'}</strong> fps</span>
+        <span className="status-item" title="GPU frames rendered on the monitor clock">
+          <strong>{runtime ? Math.round(runtime.fps) : '—'}</strong> render fps
+        </span>
         <span className="status-item"><strong>{runtime?.passCount ?? '—'}</strong> GPU passes</span>
         <span className={`status-item persistence-${persistenceState}`}>
           WebGL2 · {persistenceState === 'pending'

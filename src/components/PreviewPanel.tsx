@@ -2,7 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Camera, Maximize2 } from 'lucide-react';
 import type { GraphDocument } from '../graph';
 import {
+  FRAME_PACING_OPTIONS,
+  FramePacer,
   WebGLRenderer,
+  type FramePacingMode,
   type RenderPointer,
   type RenderResult,
 } from '../engine';
@@ -16,10 +19,16 @@ interface PreviewPanelProps {
   audioInputState: AudioInputState;
   videoInputState: VideoInputState;
   videoSource: HTMLVideoElement | null;
+  videoModelSources: ReadonlyMap<string, HTMLImageElement>;
   meterLevel: number;
   sampleAudioLevel: (timeSeconds: number) => number;
   onRuntimeUpdate: (result: RenderResult | null) => void;
   onNotify: (message: string, tone?: 'success' | 'error') => void;
+}
+
+interface MeasuredCanvasSize {
+  width: number;
+  height: number;
 }
 
 export function PreviewPanel({
@@ -29,6 +38,7 @@ export function PreviewPanel({
   audioInputState,
   videoInputState,
   videoSource,
+  videoModelSources,
   meterLevel,
   sampleAudioLevel,
   onRuntimeUpdate,
@@ -37,12 +47,30 @@ export function PreviewPanel({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<WebGLRenderer | null>(null);
   const animationRef = useRef(0);
+  const framePacerRef = useRef(new FramePacer('display'));
   const elapsedRef = useRef(0);
   const previousTimestampRef = useRef<number | null>(null);
-  const pointerRef = useRef<RenderPointer>({ x: 0.5, y: 0.5 });
+  const pointerRef = useRef<RenderPointer>({
+    x: 0.5,
+    y: 0.5,
+    down: 0,
+    press: 0,
+    release: 0,
+  });
   const publishTimestampRef = useRef(0);
-  const [error, setError] = useState<string | null>(null);
+  const playingRef = useRef(playing);
+  const videoModelSourcesRef = useRef(videoModelSources);
+  const measuredCanvasSizeRef = useRef<MeasuredCanvasSize | null>(null);
+  const modelSourceNeedsRetryRef = useRef(false);
+  const resizeNeedsRetryRef = useRef(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const [graphSyncError, setGraphSyncError] = useState<string | null>(null);
+  const [videoSourceError, setVideoSourceError] = useState<string | null>(null);
+  const [modelSourceError, setModelSourceError] = useState<string | null>(null);
+  const [resizeError, setResizeError] = useState<string | null>(null);
   const [runtime, setRuntime] = useState<RenderResult | null>(null);
+  const [framePacing, setFramePacing] =
+    useState<FramePacingMode>('display');
 
   const publishResult = useCallback(
     (result: RenderResult, force = false) => {
@@ -53,22 +81,92 @@ export function PreviewPanel({
       publishTimestampRef.current = now;
       setRuntime(result);
       onRuntimeUpdate(result);
-      setError(result.error);
+      setRenderError(result.error);
     },
     [onRuntimeUpdate],
   );
 
   const renderOnce = useCallback(
-    (forcePublish = false) => {
+    (forcePublish = false, presentationTimestamp?: number) => {
       const renderer = rendererRef.current;
       if (!renderer) {
         return;
       }
       const audio = sampleAudioLevel(elapsedRef.current);
-      const result = renderer.render(elapsedRef.current, audio, pointerRef.current);
+      const result = renderer.render(
+        elapsedRef.current,
+        audio,
+        pointerRef.current,
+        presentationTimestamp,
+      );
+      pointerRef.current = {
+        ...pointerRef.current,
+        press: 0,
+        release: 0,
+      };
       publishResult(result, forcePublish);
     },
     [publishResult, sampleAudioLevel],
+  );
+
+  useEffect(() => {
+    playingRef.current = playing;
+  }, [playing]);
+
+  const renderIfHeld = useCallback(() => {
+    if (!playingRef.current) {
+      renderOnce(true);
+    }
+  }, [renderOnce]);
+
+  useEffect(() => {
+    videoModelSourcesRef.current = videoModelSources;
+  }, [videoModelSources]);
+
+  const applyVideoModelSources = useCallback(
+    (renderer: WebGLRenderer) => {
+      try {
+        renderer.setVideoModelSources(videoModelSourcesRef.current);
+        modelSourceNeedsRetryRef.current = false;
+        queueMicrotask(() => setModelSourceError(null));
+        return true;
+      } catch (caught) {
+        modelSourceNeedsRetryRef.current = true;
+        const message =
+          caught instanceof Error
+            ? caught.message
+            : 'The generated frame could not be loaded.';
+        queueMicrotask(() => setModelSourceError(message));
+        onNotify(message, 'error');
+        return false;
+      }
+    },
+    [onNotify],
+  );
+
+  const applyMeasuredCanvasSize = useCallback(
+    (renderer: WebGLRenderer) => {
+      const size = measuredCanvasSizeRef.current;
+      if (!size) {
+        return false;
+      }
+      try {
+        renderer.resize(size.width, size.height, window.devicePixelRatio);
+        resizeNeedsRetryRef.current = false;
+        setResizeError(null);
+        return true;
+      } catch (caught) {
+        resizeNeedsRetryRef.current = true;
+        const message =
+          caught instanceof Error
+            ? caught.message
+            : 'The monitor could not resize its GPU buffers.';
+        setResizeError(message);
+        onNotify(message, 'error');
+        return false;
+      }
+    },
+    [onNotify],
   );
 
   useLayoutEffect(() => {
@@ -82,7 +180,7 @@ export function PreviewPanel({
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Unable to start the renderer.';
       queueMicrotask(() => {
-        setError(message);
+        setRenderError(message);
         onRuntimeUpdate(null);
       });
     }
@@ -95,28 +193,75 @@ export function PreviewPanel({
   }, [onRuntimeUpdate]);
 
   useEffect(() => {
-    const renderer = rendererRef.current;
-    if (!renderer) {
+    const canvas = canvasRef.current;
+    if (!canvas) {
       return;
     }
-    try {
-      renderer.setGraph(document);
-      renderOnce(true);
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'The graph could not be compiled.';
-      queueMicrotask(() => setError(message));
-      onNotify(message, 'error');
-    }
-  }, [document, onNotify, renderOnce]);
+    const renderHeldContextChange = () => renderIfHeld();
+    canvas.addEventListener('webglcontextlost', renderHeldContextChange);
+    canvas.addEventListener('webglcontextrestored', renderHeldContextChange);
+    return () => {
+      canvas.removeEventListener('webglcontextlost', renderHeldContextChange);
+      canvas.removeEventListener('webglcontextrestored', renderHeldContextChange);
+    };
+  }, [renderIfHeld]);
 
   useEffect(() => {
     const renderer = rendererRef.current;
     if (!renderer) {
       return;
     }
-    renderer.setVideoSource(videoSource);
-    renderOnce(true);
-  }, [renderOnce, videoSource]);
+    try {
+      renderer.setGraph(document);
+      if (resizeNeedsRetryRef.current) {
+        applyMeasuredCanvasSize(renderer);
+      }
+      if (modelSourceNeedsRetryRef.current) {
+        applyVideoModelSources(renderer);
+      }
+      renderIfHeld();
+      queueMicrotask(() => setGraphSyncError(null));
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'The graph could not be compiled.';
+      queueMicrotask(() => setGraphSyncError(message));
+      onNotify(message, 'error');
+    }
+  }, [
+    applyMeasuredCanvasSize,
+    applyVideoModelSources,
+    document,
+    onNotify,
+    renderIfHeld,
+  ]);
+
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer) {
+      return;
+    }
+    try {
+      renderer.setVideoSource(videoSource);
+      renderIfHeld();
+      queueMicrotask(() => setVideoSourceError(null));
+    } catch (caught) {
+      const message =
+        caught instanceof Error
+          ? caught.message
+          : 'The live video source could not be loaded.';
+      queueMicrotask(() => setVideoSourceError(message));
+      onNotify(message, 'error');
+    }
+  }, [onNotify, renderIfHeld, videoSource]);
+
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer) {
+      return;
+    }
+    if (applyVideoModelSources(renderer)) {
+      renderIfHeld();
+    }
+  }, [applyVideoModelSources, renderIfHeld, videoModelSources]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -130,12 +275,14 @@ export function PreviewPanel({
         return;
       }
       const { width, height } = entry.contentRect;
-      renderer.resize(width, height, window.devicePixelRatio);
-      renderOnce(true);
+      measuredCanvasSizeRef.current = { width, height };
+      if (applyMeasuredCanvasSize(renderer)) {
+        renderIfHeld();
+      }
     });
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [renderOnce]);
+  }, [applyMeasuredCanvasSize, renderIfHeld]);
 
   useEffect(() => {
     const renderer = rendererRef.current;
@@ -144,13 +291,21 @@ export function PreviewPanel({
     }
     elapsedRef.current = 0;
     previousTimestampRef.current = null;
+    framePacerRef.current.reset();
     renderer.reset();
-    renderOnce(true);
-  }, [renderOnce, resetToken]);
+    renderIfHeld();
+  }, [renderIfHeld, resetToken]);
+
+  useEffect(() => {
+    framePacerRef.current.setMode(framePacing);
+    rendererRef.current?.resetFrameRate();
+  }, [framePacing]);
 
   useEffect(() => {
     cancelAnimationFrame(animationRef.current);
     previousTimestampRef.current = null;
+    framePacerRef.current.reset();
+    rendererRef.current?.resetFrameRate();
 
     if (!playing || !rendererRef.current) {
       renderOnce(true);
@@ -161,24 +316,77 @@ export function PreviewPanel({
       const previous = previousTimestampRef.current;
       previousTimestampRef.current = timestamp;
       if (previous !== null) {
-        elapsedRef.current += Math.min(0.1, Math.max(0, (timestamp - previous) / 1000));
+        elapsedRef.current += Math.max(0, (timestamp - previous) / 1000);
       }
-      renderOnce();
+      if (framePacerRef.current.shouldRender(timestamp)) {
+        renderOnce(false, timestamp);
+      }
       animationRef.current = requestAnimationFrame(tick);
     };
     animationRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationRef.current);
   }, [playing, renderOnce]);
 
-  const updatePointer = (event: React.PointerEvent<HTMLCanvasElement>) => {
+  const updatePointerPosition = (
+    event: React.PointerEvent<HTMLCanvasElement>,
+  ) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     pointerRef.current = {
+      ...pointerRef.current,
       x: Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width)),
       y: Math.min(1, Math.max(0, 1 - (event.clientY - bounds.top) / bounds.height)),
     };
+  };
+
+  const renderPointerChange = () => {
     if (!playing) {
       renderOnce(true);
     }
+  };
+
+  const handlePointerDown = (
+    event: React.PointerEvent<HTMLCanvasElement>,
+  ) => {
+    updatePointerPosition(event);
+    if (event.button !== 0) {
+      renderPointerChange();
+      return;
+    }
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointerRef.current = {
+      ...pointerRef.current,
+      down: 1,
+      press: 1,
+    };
+    renderPointerChange();
+  };
+
+  const handlePointerUp = (
+    event: React.PointerEvent<HTMLCanvasElement>,
+  ) => {
+    updatePointerPosition(event);
+    if (pointerRef.current.down > 0) {
+      pointerRef.current = {
+        ...pointerRef.current,
+        down: 0,
+        release: 1,
+      };
+    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    renderPointerChange();
+  };
+
+  const handlePointerCancel = () => {
+    if (pointerRef.current.down > 0) {
+      pointerRef.current = {
+        ...pointerRef.current,
+        down: 0,
+        release: 1,
+      };
+    }
+    renderPointerChange();
   };
 
   const saveFrame = () => {
@@ -186,7 +394,6 @@ export function PreviewPanel({
     if (!canvas) {
       return;
     }
-    renderOnce(true);
     canvas.toBlob((blob) => {
       if (!blob) {
         onNotify('The current frame could not be captured.', 'error');
@@ -215,6 +422,13 @@ export function PreviewPanel({
     }
   };
 
+  const error =
+    graphSyncError ??
+    videoSourceError ??
+    modelSourceError ??
+    resizeError ??
+    renderError;
+
   return (
     <section className="preview-panel" aria-label="Live output">
       <header className="preview-header">
@@ -225,6 +439,29 @@ export function PreviewPanel({
         <div className="preview-meta">
           <AudioMeter value={meterLevel} />
           <span className="runtime-pill">{playing ? 'running' : 'held'}</span>
+          <label
+            className="preview-rate-control"
+            title="Follow the display refresh or cap monitor rendering to a fixed cadence."
+          >
+            <span className="sr-only">Monitor frame pacing</span>
+            <select
+              aria-label="Monitor frame pacing"
+              value={framePacing}
+              onChange={(event) =>
+                setFramePacing(event.currentTarget.value as FramePacingMode)
+              }
+            >
+              {FRAME_PACING_OPTIONS.map((option) => (
+                <option
+                  value={option.value}
+                  title={option.description}
+                  key={option.value}
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <button type="button" className="icon-button" onClick={saveFrame} title="Export PNG">
             <Camera size={14} />
             <span className="sr-only">Export current frame</span>
@@ -246,9 +483,15 @@ export function PreviewPanel({
           className="preview-canvas"
           data-rendered={runtime?.rendered ?? false}
           data-frame={runtime?.frame ?? 0}
-          onPointerMove={updatePointer}
-          onPointerDown={updatePointer}
-          aria-label="Rendered visual output. Move the pointer here to drive pointer signals."
+          data-frame-pacing={framePacing}
+          onPointerMove={(event) => {
+            updatePointerPosition(event);
+            renderPointerChange();
+          }}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          aria-label="Rendered visual output. Move, press, and release here to drive pointer signals."
         />
         {error ? (
           <div className="preview-error" role="alert">
@@ -263,7 +506,9 @@ export function PreviewPanel({
             <span>·</span>
             <span>{runtime.passCount} passes</span>
             <span>·</span>
-            <span>{Math.round(runtime.fps)} fps</span>
+            <span title="GPU frames rendered on the monitor clock">
+              {Math.round(runtime.fps)} render fps
+            </span>
             {audioInputState === 'live' ? <><span>·</span><span>mic</span></> : null}
             {videoInputState === 'live' ? <><span>·</span><span>camera</span></> : null}
           </div>

@@ -12,10 +12,14 @@ import {
   type OperatorParamDefinition,
 } from '../graph';
 import { FRAME_FRAGMENT_SHADERS, FULLSCREEN_VERTEX_SHADER } from './shaders';
+import { RollingFrameRate } from './frameTiming';
 
 export interface RenderPointer {
   x: number;
   y: number;
+  down: number;
+  press: number;
+  release: number;
 }
 
 export interface RendererOptions {
@@ -53,7 +57,19 @@ interface ProgramInfo {
   uniforms: Map<string, WebGLUniformLocation | null>;
 }
 
-const DEFAULT_POINTER: RenderPointer = Object.freeze({ x: 0.5, y: 0.5 });
+interface VideoModelTexture {
+  source: HTMLImageElement;
+  texture: WebGLTexture;
+  dirty: boolean;
+}
+
+const DEFAULT_POINTER: RenderPointer = Object.freeze({
+  x: 0.5,
+  y: 0.5,
+  down: 0,
+  press: 0,
+  release: 0,
+});
 const TWO_PI = Math.PI * 2;
 
 function clamp(value: number, min: number, max: number): number {
@@ -182,6 +198,28 @@ export function readVideoFrameSize(
   return { width, height };
 }
 
+export function readImageFrameSize(
+  image: Pick<HTMLImageElement, 'complete' | 'naturalWidth' | 'naturalHeight'>,
+  maxDimension = MAX_RENDER_DIMENSION,
+  maxPixels = MAX_RENDER_PIXELS,
+): RenderSize | null {
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
+  if (
+    !image.complete ||
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width < 1 ||
+    height < 1 ||
+    width > maxDimension ||
+    height > maxDimension ||
+    width * height > maxPixels
+  ) {
+    return null;
+  }
+  return { width, height };
+}
+
 export class RendererError extends Error {
   constructor(message: string) {
     super(message);
@@ -205,11 +243,12 @@ export class WebGLRenderer {
   private videoSource: HTMLVideoElement | null = null;
   private videoSourceWidth = 1;
   private videoSourceHeight = 1;
+  private videoModelSources = new Map<string, HTMLImageElement>();
+  private videoModelTextures = new Map<string, VideoModelTexture>();
   private renderWidth = 1;
   private renderHeight = 1;
   private frameCount = 0;
-  private frameRate = 0;
-  private lastRenderTimestamp: number | null = null;
+  private readonly frameRate = new RollingFrameRate();
   private lastPassCount = 0;
   private errorState: Error | null = null;
   private contextLost = false;
@@ -300,6 +339,30 @@ export class WebGLRenderer {
     }
   }
 
+  setVideoModelSources(
+    sources: ReadonlyMap<string, HTMLImageElement>,
+  ): void {
+    this.assertActive();
+    if (this.plan) {
+      this.assertResourceBudget(
+        this.plan,
+        this.renderWidth,
+        this.renderHeight,
+        sources,
+      );
+    }
+    const previousSources = this.videoModelSources;
+    this.videoModelSources = new Map(sources);
+    if (!this.contextLost) {
+      try {
+        this.reconcileVideoModelTextures();
+      } catch (error) {
+        this.videoModelSources = previousSources;
+        throw error;
+      }
+    }
+  }
+
   setCompiledGraph(graph: CompiledGraph): void {
     this.assertActive();
     const validatedGraph = compileGraph(graph.document);
@@ -310,10 +373,25 @@ export class WebGLRenderer {
       this.errorState = null;
       try {
         this.reconcileNodeResources();
+        this.reconcileVideoModelTextures();
       } catch (error) {
+        const applyError = this.asError(error);
+        this.releaseNodeResources();
+        this.releaseVideoModelTextures();
         this.plan = previousPlan;
-        this.errorState = this.asError(error);
-        throw this.errorState;
+        try {
+          if (previousPlan) {
+            this.reconcileNodeResources();
+            this.reconcileVideoModelTextures();
+          }
+        } catch (rollbackError) {
+          this.errorState = new RendererError(
+            `The new graph failed and the previous GPU plan could not be restored: ${this.asError(rollbackError).message}`,
+          );
+          throw this.errorState;
+        }
+        this.errorState = applyError;
+        throw applyError;
       }
     }
   }
@@ -329,6 +407,14 @@ export class WebGLRenderer {
     );
     const physicalWidth = physicalSize.width;
     const physicalHeight = physicalSize.height;
+    if (this.plan) {
+      this.assertResourceBudget(
+        this.plan,
+        physicalWidth,
+        physicalHeight,
+        this.videoModelSources,
+      );
+    }
     if (
       physicalWidth === this.renderWidth &&
       physicalHeight === this.renderHeight &&
@@ -365,6 +451,7 @@ export class WebGLRenderer {
     timeSeconds: number,
     audioLevel = 0,
     pointer: RenderPointer = DEFAULT_POINTER,
+    presentationTimestamp?: number,
   ): RenderResult {
     if (this.disposed) {
       return this.result(false, new RendererError('Renderer has been disposed.'));
@@ -374,12 +461,14 @@ export class WebGLRenderer {
     }
 
     try {
-      this.updateFrameRate();
       const time = finiteOr(timeSeconds, 0);
       const audio = clamp(finiteOr(audioLevel, 0), 0, 1);
       const safePointer = {
         x: clamp(finiteOr(pointer.x, 0.5), 0, 1),
         y: clamp(finiteOr(pointer.y, 0.5), 0, 1),
+        down: clamp(finiteOr(pointer.down, 0), 0, 1),
+        press: clamp(finiteOr(pointer.press, 0), 0, 1),
+        release: clamp(finiteOr(pointer.release, 0), 0, 1),
       };
 
       this.controlValues.clear();
@@ -389,6 +478,9 @@ export class WebGLRenderer {
         this.lastPassCount = 0;
         this.errorState = null;
         this.frameCount += 1;
+        if (presentationTimestamp !== undefined) {
+          this.frameRate.sample(presentationTimestamp);
+        }
         return this.result(true, null);
       }
 
@@ -408,6 +500,9 @@ export class WebGLRenderer {
       this.lastPassCount = this.plan.frameNodes.length + 1;
       this.errorState = null;
       this.frameCount += 1;
+      if (presentationTimestamp !== undefined) {
+        this.frameRate.sample(presentationTimestamp);
+      }
       return this.result(true, null);
     } catch (error) {
       this.errorState = this.asError(error);
@@ -419,11 +514,14 @@ export class WebGLRenderer {
     this.errorState = null;
   }
 
+  resetFrameRate(): void {
+    this.frameRate.reset();
+  }
+
   reset(): void {
     this.assertActive();
     this.frameCount = 0;
-    this.frameRate = 0;
-    this.lastRenderTimestamp = null;
+    this.frameRate.reset();
     this.lastPassCount = 0;
     this.controlValues.clear();
     this.outputTextures.clear();
@@ -453,6 +551,7 @@ export class WebGLRenderer {
     );
     if (!this.contextLost) {
       this.releaseNodeResources();
+      this.releaseVideoModelTextures();
       for (const info of this.programs.values()) {
         this.gl.deleteProgram(info.program);
       }
@@ -474,6 +573,8 @@ export class WebGLRenderer {
     this.videoSource = null;
     this.videoSourceWidth = 1;
     this.videoSourceHeight = 1;
+    this.videoModelSources.clear();
+    this.videoModelTextures.clear();
     this.vertexArray = null;
     this.plan = null;
     this.disposed = true;
@@ -492,6 +593,7 @@ export class WebGLRenderer {
     this.programs.clear();
     this.blackTexture = null;
     this.videoTexture = null;
+    this.videoModelTextures.clear();
     this.videoSourceWidth = 1;
     this.videoSourceHeight = 1;
     this.vertexArray = null;
@@ -505,6 +607,7 @@ export class WebGLRenderer {
     try {
       this.initializeContextResources();
       this.reconcileNodeResources();
+      this.reconcileVideoModelTextures();
       this.errorState = null;
     } catch (error) {
       this.errorState = this.asError(error);
@@ -595,6 +698,15 @@ export class WebGLRenderer {
     if (!size) {
       return;
     }
+    if (this.plan) {
+      this.assertResourceBudget(
+        this.plan,
+        this.renderWidth,
+        this.renderHeight,
+        this.videoModelSources,
+        size,
+      );
+    }
 
     const gl = this.gl;
     try {
@@ -619,7 +731,142 @@ export class WebGLRenderer {
     }
   }
 
-  private assertResourceBudget(graph: CompiledGraph): void {
+  private reconcileVideoModelTextures(): void {
+    if (this.contextLost) {
+      return;
+    }
+    const activeNodeIds = new Set(
+      this.plan?.frameNodes
+        .filter(({ node }) => node.kind === 'videoModel')
+        .map(({ node }) => node.id) ?? [],
+    );
+
+    const previous = this.videoModelTextures;
+    const next = new Map<string, VideoModelTexture>();
+    const created: VideoModelTexture[] = [];
+    const sourceUpdates: Array<{
+      entry: VideoModelTexture;
+      source: HTMLImageElement;
+    }> = [];
+    try {
+      for (const nodeId of activeNodeIds) {
+        const source = this.videoModelSources.get(nodeId);
+        if (!source) {
+          continue;
+        }
+        const existing = previous.get(nodeId);
+        if (existing) {
+          next.set(nodeId, existing);
+          if (existing.source !== source) {
+            sourceUpdates.push({ entry: existing, source });
+          }
+          continue;
+        }
+        const entry: VideoModelTexture = {
+          source,
+          texture: this.createSourceTexture(),
+          dirty: true,
+        };
+        created.push(entry);
+        next.set(nodeId, entry);
+      }
+    } catch (error) {
+      for (const entry of created) {
+        this.gl.deleteTexture(entry.texture);
+      }
+      throw error;
+    }
+    for (const { entry, source } of sourceUpdates) {
+      entry.source = source;
+      entry.dirty = true;
+    }
+    for (const [nodeId, entry] of previous) {
+      if (next.get(nodeId) !== entry) {
+        this.gl.deleteTexture(entry.texture);
+      }
+    }
+    this.videoModelTextures = next;
+  }
+
+  private createSourceTexture(): WebGLTexture {
+    const gl = this.gl;
+    const texture = gl.createTexture();
+    if (!texture) {
+      throw new RendererError('Unable to allocate a model frame texture.');
+    }
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      1,
+      1,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array([0, 0, 0, 255]),
+    );
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return texture;
+  }
+
+  private uploadVideoModelFrame(nodeId: string): WebGLTexture | null {
+    const entry = this.videoModelTextures.get(nodeId);
+    if (!entry) {
+      return null;
+    }
+    if (!entry.dirty) {
+      return entry.texture;
+    }
+    const size = readImageFrameSize(
+      entry.source,
+      this.maxTextureDimension,
+      MAX_RENDER_PIXELS,
+    );
+    if (!size) {
+      return null;
+    }
+    const gl = this.gl;
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        entry.source,
+      );
+      entry.dirty = false;
+      return entry.texture;
+    } finally {
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+  }
+
+  private releaseVideoModelTextures(): void {
+    for (const entry of this.videoModelTextures.values()) {
+      this.gl.deleteTexture(entry.texture);
+    }
+    this.videoModelTextures.clear();
+  }
+
+  private assertResourceBudget(
+    graph: CompiledGraph,
+    width = this.renderWidth,
+    height = this.renderHeight,
+    modelSources: ReadonlyMap<string, HTMLImageElement> = this.videoModelSources,
+    videoSize: RenderSize = {
+      width: this.videoSourceWidth,
+      height: this.videoSourceHeight,
+    },
+  ): void {
     const targetCount = graph.frameNodes.reduce(
       (count, { node }) => count + (node.kind === 'trails' ? 2 : 1),
       0,
@@ -629,10 +876,30 @@ export class WebGLRenderer {
         `Graph requires ${targetCount} offscreen frames; the limit is ${MAX_GPU_RENDER_TARGETS}.`,
       );
     }
-    if (
-      this.renderWidth * this.renderHeight * targetCount >
-      MAX_RENDER_RESOURCE_PIXELS
-    ) {
+    const activeModelIds = new Set(
+      graph.frameNodes
+        .filter(({ node }) => node.kind === 'videoModel')
+        .map(({ node }) => node.id),
+    );
+    let sourcePixels = graph.frameNodes.some(
+      ({ node }) => node.kind === 'videoInput',
+    )
+      ? videoSize.width * videoSize.height
+      : 0;
+    for (const [nodeId, image] of modelSources) {
+      if (!activeModelIds.has(nodeId)) {
+        continue;
+      }
+      const size = readImageFrameSize(
+        image,
+        this.maxTextureDimension,
+        MAX_RENDER_PIXELS,
+      );
+      if (size) {
+        sourcePixels += size.width * size.height;
+      }
+    }
+    if (width * height * targetCount + sourcePixels > MAX_RENDER_RESOURCE_PIXELS) {
       throw new RendererError('The graph exceeds the graphics resource budget.');
     }
   }
@@ -770,6 +1037,31 @@ export class WebGLRenderer {
         this.setControl(node.id, 'value', time * speed + offset);
         return;
       }
+      case 'beatClock': {
+        const sourceTime = this.controlInput(compiledNode, 'time', time);
+        const beatsPerSecond = this.numberParam(compiledNode, 'bpm') / 60;
+        const beatsPerBar = Math.max(
+          1,
+          Math.round(this.numberParam(compiledNode, 'beatsPerBar')),
+        );
+        const beatPosition =
+          sourceTime * beatsPerSecond +
+          this.numberParam(compiledNode, 'offset');
+        const phase = beatPosition - Math.floor(beatPosition);
+        const barPosition = beatPosition / beatsPerBar;
+        this.setControl(node.id, 'phase', phase);
+        this.setControl(
+          node.id,
+          'beat',
+          phase < this.numberParam(compiledNode, 'pulseWidth') ? 1 : 0,
+        );
+        this.setControl(
+          node.id,
+          'bar',
+          barPosition - Math.floor(barPosition),
+        );
+        return;
+      }
       case 'oscillator': {
         const phaseSignal = this.controlInput(compiledNode, 'phase', time);
         const frequency = this.numberParam(compiledNode, 'frequency');
@@ -799,6 +1091,9 @@ export class WebGLRenderer {
       case 'pointer':
         this.setControl(node.id, 'x', pointer.x);
         this.setControl(node.id, 'y', pointer.y);
+        this.setControl(node.id, 'down', pointer.down);
+        this.setControl(node.id, 'press', pointer.press);
+        this.setControl(node.id, 'release', pointer.release);
         return;
       case 'xyPad':
         this.setControl(node.id, 'x', this.numberParam(compiledNode, 'x'));
@@ -892,6 +1187,42 @@ export class WebGLRenderer {
           this.stringParam(compiledNode, 'mirror') === 'on' ? 1 : 0,
         );
         break;
+      case 'videoModel': {
+        const generatedTexture = this.uploadVideoModelFrame(
+          compiledNode.node.id,
+        );
+        this.bindTexture(
+          program,
+          'uSource',
+          this.frameInput(compiledNode, 'source'),
+          0,
+        );
+        this.bindTexture(
+          program,
+          'uGenerated',
+          generatedTexture ?? this.fallbackTexture(),
+          1,
+        );
+        this.uniform1f(
+          program,
+          'uHasSource',
+          compiledNode.inputs.source ? 1 : 0,
+        );
+        this.uniform1f(program, 'uHasGenerated', generatedTexture ? 1 : 0);
+        this.uniform1f(program, 'uTime', time);
+        this.uniform1f(
+          program,
+          'uStrength',
+          this.numberParam(compiledNode, 'strength'),
+        );
+        this.uniform1f(
+          program,
+          'uGuidance',
+          this.numberParam(compiledNode, 'guidance'),
+        );
+        this.uniform1f(program, 'uSeed', this.numberParam(compiledNode, 'seed'));
+        break;
+      }
       case 'plasma': {
         const phase = this.controlInput(compiledNode, 'time', time);
         const speed = this.numberParam(compiledNode, 'speed');
@@ -1289,7 +1620,7 @@ export class WebGLRenderer {
     return {
       rendered,
       frame: this.frameCount,
-      fps: this.frameRate,
+      fps: this.frameRate.value,
       passCount: this.lastPassCount,
       width: this.renderWidth,
       height: this.renderHeight,
@@ -1301,21 +1632,6 @@ export class WebGLRenderer {
     if (this.disposed) {
       throw new RendererError('Renderer has been disposed.');
     }
-  }
-
-  private updateFrameRate(): void {
-    const timestamp = performance.now();
-    if (this.lastRenderTimestamp !== null) {
-      const elapsed = timestamp - this.lastRenderTimestamp;
-      if (elapsed > 0) {
-        const instantaneous = 1000 / elapsed;
-        this.frameRate =
-          this.frameRate === 0
-            ? instantaneous
-            : this.frameRate * 0.9 + instantaneous * 0.1;
-      }
-    }
-    this.lastRenderTimestamp = timestamp;
   }
 
   private asError(error: unknown): Error {

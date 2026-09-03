@@ -136,7 +136,12 @@ export function GraphEditor({
               (port) => port.id === edge.source.portId,
             )
           : undefined;
-        const color = sourcePort?.type === 'control.f32' ? '#d8ff5f' : '#65ddff';
+        const color =
+          sourcePort?.type === 'control.f32'
+            ? '#d8ff5f'
+            : sourcePort?.type === 'text.utf8'
+              ? '#ffcf6a'
+              : '#65ddff';
         return {
           id: edge.id,
           source: edge.source.nodeId,
