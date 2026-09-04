@@ -8,6 +8,39 @@ const ROADMAP_URL = `${REPOSITORY_URL}/blob/main/docs/FUTURE_DEVELOPMENT.md`;
 const MODEL_CONNECTORS_URL = `${REPOSITORY_URL}/blob/main/docs/MODEL_CONNECTORS.md`;
 const COMPONENT_CATALOG_URL = 'https://videobrain.org/storybook/';
 
+const plannedAreas = [
+  {
+    title: 'Control and mapping',
+    items:
+      'Constant, Math, Map Range, Smooth / Slew, triggers, envelopes, counters, timers, sequencing, and automation curves',
+  },
+  {
+    title: 'Media and compositing',
+    items:
+      'Image/video files, screen capture, shapes, text, Transform 2D, blur, keying, masks, richer compositing, switching, and displacement',
+  },
+  {
+    title: 'Audio',
+    items:
+      'Audio Device In, file playback, FFT and band energy, onset/beat/pitch analysis, explicit Audio Output/Monitor, mixing, effects, and recording',
+  },
+  {
+    title: 'Devices and networking',
+    items:
+      'MIDI, gamepad, sensors, OSC and lighting bridges, WebRTC, peer control, publishing, and broadcast gateways',
+  },
+  {
+    title: 'Vision and spatial media',
+    items:
+      'Motion analysis, contours, face/hand/body tracking, segmentation, depth/IR workflows, point clouds, and zones',
+  },
+  {
+    title: 'Creation and show control',
+    items:
+      'Reusable subgraphs, presets, macro panels, assets, 3D, particles, projection mapping, multi-display, collaboration, and extension packages',
+  },
+] as const;
+
 interface HelpDialogProps {
   onClose: () => void;
 }
@@ -36,7 +69,7 @@ const recipes = [
   {
     title: 'Audio-reactive trails',
     path: 'Audio Level → Trails Feedback; visual source → Trails → Display',
-    note: 'Select Audio Level and explicitly enable the microphone when ready.',
+    note: 'Start the microphone inside Audio Level. It emits a 0–1 loudness control; it does not play or pass through sound.',
   },
   {
     title: 'Live camera dream',
@@ -154,6 +187,7 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
           <a href="#help-recipes">Recipes</a>
           <a href="#help-models">Models</a>
           <a href="#help-io">I/O</a>
+          <a href="#help-roadmap">Roadmap</a>
         </nav>
 
         <div className="help-body">
@@ -175,6 +209,10 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
                 <li>
                   Drag inside <strong>XY Pad</strong> to change its X and Y outputs
                   together.
+                </li>
+                <li>
+                  Start protected inputs from the control inside their node.
+                  Your browser will then ask for camera or microphone permission.
                 </li>
                 <li>End a visual path at <strong>Display</strong> to see it live.</li>
               </ol>
@@ -322,11 +360,70 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
               action, and browser permission. Camera media stays local unless it
               is directly routed into an explicitly connected networked Video Model.
             </p>
+            <h3>Using Audio Level</h3>
+            <p>
+              <strong>Audio Level analyzes sound; it does not produce sound.</strong>{' '}
+              Press <strong>Start mic</strong> inside the node (or Enable
+              microphone in its Inspector), approve the browser prompt, then speak
+              or play sound near that input. Its meter and <strong>Level</strong>{' '}
+              output show normalized loudness from 0 to 1. For feedback safety,
+              microphone audio is never sent to the speakers, mixed, recorded, or
+              passed through by this node.
+            </p>
+            <ul>
+              <li><strong>Flow Field · Energy</strong> — quiet to energetic motion and color.</li>
+              <li><strong>Warp · Amount</strong> — quiet to strong distortion.</li>
+              <li><strong>Blend · Mix</strong> — move from input A toward input B.</li>
+              <li><strong>Trails · Feedback</strong> — short to long image persistence.</li>
+              <li><strong>Color Grade · Hue / Exposure / Saturation</strong> — animate the currently connectable color inputs.</li>
+            </ul>
+            <p>
+              Drag from Audio Level's <strong>Level</strong> output dot to one of
+              those control input dots. The cable supplies the target value while
+              connected, replacing that target's inline slider value. Audio Level
+              applies <code>clamp((input − Floor) × Gain, 0, 1)</code>: Floor rejects
+              quiet background noise and Gain controls analysis sensitivity.
+              Neither setting is speaker volume. A future Map Range node will make
+              scaling and offsetting control signals more flexible.
+            </p>
+            <h3>Using Video Input</h3>
+            <p>
+              Press <strong>Start camera</strong> inside the node (or Enable camera
+              in its Inspector), approve the browser prompt, then connect
+              <strong> Frame</strong> to Display <strong>Source</strong> for the
+              simplest check. You can instead route it through Warp, Trails, Color
+              Grade, Blend, or Video Model before Display. Selecting a camera node
+              or connecting it does not start the device by itself.
+            </p>
             <p className="help-note">
               <strong>Monitor pacing:</strong> Display sync follows the browser's
               display refresh. The 60 fps and 30 fps choices cap rendering on
               the same synchronized animation clock, and the readout reports a
               rolling measured render rate.
+            </p>
+          </section>
+
+          <section id="help-roadmap" className="help-section">
+            <h2>Not built yet</h2>
+            <p className="help-intro">
+              These are planned or exploratory areas, not features in the current
+              release. The planning document contains the complete prioritized
+              node catalog, browser/bridge I/O matrix, example patches, and delivery
+              phases.
+            </p>
+            <div className="help-recipe-list">
+              {plannedAreas.map((area) => (
+                <article key={area.title}>
+                  <h3>{area.title}</h3>
+                  <p>{area.items}</p>
+                </article>
+              ))}
+            </div>
+            <p>
+              <a href={ROADMAP_URL} target="_blank" rel="noreferrer">
+                Read the comprehensive node and module plan{' '}
+                <ExternalLink size={12} aria-hidden="true" />
+              </a>
             </p>
           </section>
 

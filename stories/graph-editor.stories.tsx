@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { GraphEditor } from '../src/components/GraphEditor';
+import type { OperatorInputRuntime } from '../src/components/operatorInputRuntime';
 import {
   GRAPH_SCHEMA_VERSION,
   createGraphNode,
@@ -12,6 +13,22 @@ import {
   type GraphPosition,
 } from '../src/graph';
 import './catalog.css';
+
+const STORY_INPUT_RUNTIME: OperatorInputRuntime = {
+  audio: {
+    inputState: 'demo',
+    meterLevel: 0.28,
+    enable: () => Promise.resolve(),
+    disable: () => undefined,
+  },
+  video: {
+    inputState: 'idle',
+    errorMessage: null,
+    facingMode: 'user',
+    enable: () => Promise.resolve(),
+    disable: () => undefined,
+  },
+};
 
 const edge = (
   id: string,
@@ -106,6 +123,7 @@ function GraphFixture({ playing }: { playing: boolean }) {
           document={document}
           selectedNodeId={selectedNodeId}
           playing={playing}
+          inputRuntime={STORY_INPUT_RUNTIME}
           onMoveNode={moveNode}
           onDeleteNode={deleteNode}
           onDisconnect={disconnect}

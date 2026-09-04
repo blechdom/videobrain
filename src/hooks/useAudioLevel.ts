@@ -15,9 +15,19 @@ interface AudioSession {
   context: AudioContext | null;
   source: MediaStreamAudioSourceNode | null;
   analyser: AnalyserNode | null;
+  endedHandlers: Array<{ track: MediaStreamTrack; handler: () => void }>;
+  released: boolean;
 }
 
 function releaseAudioSession(session: AudioSession): void {
+  if (session.released) {
+    return;
+  }
+  session.released = true;
+  session.endedHandlers.forEach(({ track, handler }) => {
+    track.removeEventListener('ended', handler);
+  });
+  session.endedHandlers = [];
   try {
     session.source?.disconnect();
   } catch {
@@ -84,7 +94,14 @@ export function useAudioLevel(): AudioLevelController {
       });
 
       if (requestVersionRef.current !== requestVersion) {
-        releaseAudioSession({ stream, context: null, source: null, analyser: null });
+        releaseAudioSession({
+          stream,
+          context: null,
+          source: null,
+          analyser: null,
+          endedHandlers: [],
+          released: false,
+        });
         return;
       }
 
@@ -93,8 +110,23 @@ export function useAudioLevel(): AudioLevelController {
         context: null,
         source: null,
         analyser: null,
+        endedHandlers: [],
+        released: false,
       };
       sessionRef.current = session;
+
+      const handleEnded = () => {
+        if (sessionRef.current !== session) {
+          return;
+        }
+        requestVersionRef.current += 1;
+        releaseCurrentSession();
+        setInputState('unavailable');
+      };
+      stream.getAudioTracks().forEach((track) => {
+        track.addEventListener('ended', handleEnded);
+        session.endedHandlers.push({ track, handler: handleEnded });
+      });
 
       const context = new AudioContext();
       session.context = context;
@@ -105,6 +137,17 @@ export function useAudioLevel(): AudioLevelController {
       analyser.fftSize = 1024;
       analyser.smoothingTimeConstant = 0.72;
       source.connect(analyser);
+      if (context.state === 'suspended') {
+        await context.resume();
+      }
+
+      if (
+        requestVersionRef.current !== requestVersion ||
+        sessionRef.current !== session
+      ) {
+        releaseAudioSession(session);
+        return;
+      }
 
       samplesRef.current = new Float32Array(analyser.fftSize);
       setInputState('live');

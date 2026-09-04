@@ -72,7 +72,7 @@ The built-in **Signal Graph** is attractive without media permissions or network
 
 ### Implemented frame nodes
 
-- Video Input with explicit opt-in camera access, facing preference, fit, and mirror controls.
+- Video Input with explicit opt-in camera access from its node or Inspector, facing preference, fit, and mirror controls. Adding or wiring the node never starts the device.
 - Video Model with a built-in procedural visual preview and compatible WebSocket/HTTP adapter modes.
 - Flow Field and Cells procedural producers.
 - Warp and two-input Blend processors.
@@ -87,7 +87,7 @@ The built-in **Signal Graph** is attractive without media permissions or network
 - Oscillator with sine, triangle, saw, and square waveforms.
 - Pointer X/Y position plus Held state and one-tick Press/Release pulses.
 - XY Pad with normalized, independently connectable X and Y values.
-- Audio Level with deterministic demo input and explicit opt-in microphone analysis.
+- Audio Level with deterministic demo input and explicit opt-in microphone analysis. It emits only a normalized visual control, `clamp((input - floor) * gain, 0, 1)`; it intentionally provides no playback, speaker monitoring, recording, or audio pass-through.
 
 Every animatable numeric visual parameter uses the same typed control-port mechanism. The graph does not rely on node-specific animation wiring.
 
@@ -106,6 +106,7 @@ See [Model Connectors](MODEL_CONNECTORS.md) for the current wire contract and ad
 - Solid color, uploaded image, blur, and general transform processors.
 - Constant, arithmetic, range mapping, smoothing, and sample-and-hold controls.
 - A general-purpose Delay node beyond the retained state inside Trails.
+- Audio Device In, file playback, FFT/band analysis, and an explicit feedback-safe Audio Output/Monitor path.
 
 ### Runtime
 

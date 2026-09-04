@@ -729,6 +729,136 @@ textarea:focus-visible,
   box-shadow: 0 0 9px color-mix(in srgb, var(--node-accent, var(--acid)) 70%, transparent);
 }
 
+.node-input-runtime {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 9px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: rgb(8 10 14 / 42%);
+}
+
+.node-input-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  color: var(--dim);
+  font: 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.node-input-readout {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+}
+
+.node-input-hint {
+  flex: 0 0 100%;
+  margin: -1px 0 0;
+  color: var(--dim);
+  font: 7px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.015em;
+}
+
+.node-input-state {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 4px;
+  color: var(--dim);
+  font: 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.node-input-state i {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--line-bright);
+}
+
+.node-input-state.is-live {
+  color: var(--ink);
+}
+
+.node-input-state.is-live i {
+  background: var(--node-accent, var(--acid));
+  box-shadow: 0 0 7px color-mix(in srgb, var(--node-accent, var(--acid)) 75%, transparent);
+}
+
+.node-level-meter {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgb(255 255 255 / 10%) 0 7px,
+      transparent 7px 9px
+    );
+}
+
+.node-level-meter i {
+  display: block;
+  width: var(--meter-level, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--acid), #ffbd5f 74%, var(--danger));
+  box-shadow: 0 0 6px color-mix(in srgb, var(--acid) 45%, transparent);
+  transition: width 80ms linear;
+}
+
+.node-input-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 23px;
+  padding: 0 7px;
+  color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--node-accent, var(--acid)) 45%, var(--line));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--node-accent, var(--acid)) 10%, var(--surface-raised));
+  font: 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.node-input-button:hover:not(:disabled),
+.node-input-button:focus-visible {
+  border-color: var(--node-accent, var(--acid));
+  outline: none;
+}
+
+.node-input-button.is-stop {
+  color: #ffd3d3;
+  border-color: rgb(255 107 107 / 42%);
+  background: rgb(255 107 107 / 8%);
+}
+
+.node-input-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.node-input-button svg {
+  width: 10px;
+  height: 10px;
+}
+
 .node-ports {
   display: grid;
   grid-template-columns: 1fr 1fr;

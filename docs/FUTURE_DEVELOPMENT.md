@@ -47,7 +47,7 @@ The app currently opens the permission-free **Signal Graph** with three signal t
 | Control | ✅ Oscillator | Sine, triangle, saw, and square modulation with frequency, phase, amplitude, and offset |
 | Control | ✅ Pointer | Normalized X/Y, held state, and one-tick press/release pulses from the output stage |
 | Control | ✅ XY Pad | Editable normalized X and Y outputs with direct two-axis control inside the node |
-| Control | ✅ Audio Level | Normalized energy with gain/floor controls; deterministic fallback until microphone access is explicitly enabled |
+| Control | ✅ Audio Level | Feedback-safe visual control only: normalized microphone energy with gain/floor controls and deterministic fallback; no playback, monitoring, recording, or audio pass-through |
 | Text | ✅ AI Chat | Bounded positive/negative prompt authoring with a `text.utf8` prompt output |
 | Frame input | ✅ Video Input | Opt-in live camera frames with front/rear preference, cover/contain/stretch fit, and mirroring |
 | Frame model | ✅ Video Model | Built-in procedural visual preview plus compatible user-run WebSocket/HTTP adapter modes |
@@ -77,6 +77,29 @@ The app currently opens the permission-free **Signal Graph** with three signal t
 - ✅ Graph size, file size, resolution, pixel count, render-target, and pass budgets.
 - ✅ Cycle rejection except for state intentionally retained inside Trails.
 - ✅ Static HTTPS deployment design using private object storage and a CDN.
+
+## Quick index: what is not built yet
+
+Everything marked 🚧, 🧭, 🔬, or 🧩 in the detailed tables is unbuilt. This index
+highlights the major gaps and links to the complete lists; it is a navigation
+aid, not a separate commitment or priority system.
+
+| Area | Representative unbuilt work | Complete list |
+| --- | --- | --- |
+| Control and mapping | Constant, Math, Map Range, Smooth/Slew, logic, triggers, envelopes, timers, sequencing, and automation | [Control, events, and timing](#control-events-and-timing) |
+| Frame sources | Solid/gradient/noise/shape/text, image and video files, screen capture, playlists, browser/network media, and custom shader sources | [Frame sources and media](#frame-sources-and-media) |
+| Image processing | Transform 2D, crop/resize, blur, levels, keying/mattes, composite/switch, displacement, bloom, time effects, and projection warp | [Frame processing and compositing](#frame-processing-and-compositing) |
+| Audio | Audio Device In, file playback, FFT/band/beat/pitch analysis, explicit Audio Output/Monitor, mixing, effects, and recording | [Audio analysis and processing](#audio-analysis-and-processing) |
+| Data and networking | JSON/CSV/text tools, fetch, WebSocket, MQTT, WebRTC data, OSC and lighting gateways, and record/replay | [Data, text, and networking](#data-text-and-networking-nodes) |
+| Vision and ML | Motion/blobs, face/hand/body tracking, segmentation, depth, point clouds, detection, and advanced model effects | [Computer vision, tracking, and ML](#computer-vision-tracking-and-ml) |
+| 3D and particles | Geometry, materials, lighting, instancing, particles, physics, glTF, and 3D rendering | [Geometry, particles, materials, and rendering](#geometry-particles-materials-and-rendering) |
+| Workflow and reuse | Groups, reusable subgraphs, named controls, presets, performance panels, asset bin, scenes, packages, and collaboration | [Components, UI, reuse, and show control](#components-ui-reuse-and-show-control) |
+| Output and distribution | Snapshot, recorder, multi-display, WebRTC publishing, projection/LED mapping, encoding, broadcast gateways, and XR | [Outputs, recording, mapping, and distribution](#outputs-recording-mapping-and-distribution) |
+
+For practical demonstrations that exercise these ideas, jump to the
+[example patch and preset library](#example-patch-and-preset-library). For
+hardware and protocol feasibility, use the
+[browser and bridge I/O matrix](#browser-and-bridge-io-matrix).
 
 ## Signal types to grow toward
 
@@ -207,12 +230,17 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 
 ### Audio analysis and processing
 
-Visual-rate analysis and sample-rate audio are different runtimes. An `AudioWorklet` should own sample-critical nodes; visual controls receive downsampled analysis values.
+Visual-rate analysis and sample-rate audio are different runtimes. The current
+Audio Level node reads amplitude only and emits a normalized visual-rate control;
+it intentionally has no audio output and never monitors the microphone through
+the speakers. That feedback-safe behavior must not be mistaken for a broken
+sound path. An `AudioWorklet` should own future sample-critical nodes; visual
+controls receive downsampled analysis values.
 
 | Priority | Node/module | Purpose |
 | --- | --- | --- |
-| P0 | ✅ Audio Level | Visual-frame energy control from an opt-in microphone |
-| P1 | 🚧 Audio Device In | Select device, channels, monitor policy, and permission state |
+| P0 | ✅ Audio Level | Visual-frame energy control from an opt-in microphone; `clamp((input - floor) * gain, 0, 1)`, with no playback or pass-through |
+| P1 | 🚧 Audio Device In | Select device and channels and expose an `audio.block`; monitoring remains off until routed explicitly |
 | P1 | 🚧 Audio File | Decode and play a local asset against an audio clock |
 | P1 | 🚧 Spectrum / FFT | Windowed frequency bins and logarithmic views |
 | P1 | 🚧 Band Energy | Bass, low-mid, high-mid, and treble envelopes |
@@ -220,7 +248,7 @@ Visual-rate analysis and sample-rate audio are different runtimes. An `AudioWork
 | P1 | 🚧 Onset / Beat | Transient events with confidence and refractory period |
 | P1 | 🚧 Pitch | Fundamental estimate plus confidence |
 | P1 | 🚧 Waveform | Time-domain block for scope and geometry conversion |
-| P2 | 🧭 Audio Output | Explicit destination and safety gain |
+| P2 | 🧭 Audio Output / Monitor | Explicit speaker destination, opt-in monitoring, feedback warning, mute, and safety gain |
 | P2 | 🧭 Gain / Pan | Audio-rate amplitude and stereo placement |
 | P2 | 🧭 Mixer | Multi-channel gain, mute, solo, and metering |
 | P2 | 🧭 Filter / EQ | Biquad filters and parametric bands |

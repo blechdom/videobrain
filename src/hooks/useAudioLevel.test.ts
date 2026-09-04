@@ -19,10 +19,75 @@ function setGetUserMedia(
 
 function makeStream() {
   const stop = vi.fn();
+  const listeners = new Set<() => void>();
+  const addEventListener = vi.fn((event: string, listener: () => void) => {
+    if (event === 'ended') {
+      listeners.add(listener);
+    }
+  });
+  const removeEventListener = vi.fn((event: string, listener: () => void) => {
+    if (event === 'ended') {
+      listeners.delete(listener);
+    }
+  });
+  const track = {
+    addEventListener,
+    removeEventListener,
+    stop,
+  } as unknown as MediaStreamTrack;
   const stream = {
-    getTracks: () => [{ stop }],
+    getAudioTracks: () => [track],
+    getTracks: () => [track],
   } as unknown as MediaStream;
-  return { stop, stream };
+  return {
+    addEventListener,
+    end: () => {
+      [...listeners].forEach((listener) => listener());
+    },
+    removeEventListener,
+    stop,
+    stream,
+  };
+}
+
+function stubWorkingAudioContext(
+  state: AudioContextState = 'running',
+  resumeResult: Promise<void> = Promise.resolve(),
+) {
+  const connect = vi.fn();
+  const disconnectAnalyser = vi.fn();
+  const disconnectSource = vi.fn();
+  const close = vi.fn().mockResolvedValue(undefined);
+  const resume = vi.fn().mockReturnValue(resumeResult);
+  const analyser = {
+    disconnect: disconnectAnalyser,
+    fftSize: 2048,
+    getFloatTimeDomainData: vi.fn(),
+    smoothingTimeConstant: 0,
+  };
+
+  class WorkingAudioContext {
+    state = state;
+    close = close;
+    resume = resume;
+
+    createMediaStreamSource() {
+      return { connect, disconnect: disconnectSource };
+    }
+
+    createAnalyser() {
+      return analyser;
+    }
+  }
+
+  vi.stubGlobal('AudioContext', WorkingAudioContext);
+  return {
+    close,
+    connect,
+    disconnectAnalyser,
+    disconnectSource,
+    resume,
+  };
 }
 
 afterEach(() => {
@@ -36,6 +101,67 @@ afterEach(() => {
 });
 
 describe('microphone lifecycle', () => {
+  it('resumes a suspended audio context before reporting the microphone live', async () => {
+    const { stream } = makeStream();
+    const { resume } = stubWorkingAudioContext('suspended');
+    setGetUserMedia(vi.fn().mockResolvedValue(stream));
+    const { result } = renderHook(() => useAudioLevel());
+
+    await act(async () => {
+      await result.current.enableMicrophone();
+    });
+
+    expect(resume).toHaveBeenCalledOnce();
+    expect(result.current.inputState).toBe('live');
+  });
+
+  it('cleans up when a suspended audio context cannot resume', async () => {
+    const { removeEventListener, stop, stream } = makeStream();
+    const { close, disconnectAnalyser, disconnectSource } =
+      stubWorkingAudioContext(
+        'suspended',
+        Promise.reject(new Error('resume failed')),
+      );
+    setGetUserMedia(vi.fn().mockResolvedValue(stream));
+    const { result } = renderHook(() => useAudioLevel());
+
+    await act(async () => {
+      await result.current.enableMicrophone();
+    });
+
+    expect(result.current.inputState).toBe('unavailable');
+    expect(removeEventListener).toHaveBeenCalledOnce();
+    expect(disconnectSource).toHaveBeenCalledOnce();
+    expect(disconnectAnalyser).toHaveBeenCalledOnce();
+    expect(stop).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it('releases the session and leaves live state when the microphone track ends', async () => {
+    const { end, removeEventListener, stop, stream } = makeStream();
+    const { close, disconnectAnalyser, disconnectSource } =
+      stubWorkingAudioContext();
+    setGetUserMedia(vi.fn().mockResolvedValue(stream));
+    const { result } = renderHook(() => useAudioLevel());
+
+    await act(async () => {
+      await result.current.enableMicrophone();
+    });
+    expect(result.current.inputState).toBe('live');
+
+    act(() => end());
+
+    expect(result.current.inputState).toBe('unavailable');
+    expect(removeEventListener).toHaveBeenCalledOnce();
+    expect(disconnectSource).toHaveBeenCalledOnce();
+    expect(disconnectAnalyser).toHaveBeenCalledOnce();
+    expect(stop).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
+
+    act(() => end());
+    expect(stop).toHaveBeenCalledOnce();
+  });
+
   it('releases an acquired stream when audio setup fails partway through', async () => {
     const { stop, stream } = makeStream();
     const disconnectSource = vi.fn();

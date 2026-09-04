@@ -63,7 +63,28 @@ Build the complete deployable site, including the catalog, with
 | Open node search | `/` |
 | Dismiss a panel | `Escape` |
 
-Camera and microphone input are optional and begin only after pressing their explicit enable controls. Without microphone access, the included Signal Graph uses a deterministic demo pulse. Its Video Model starts in a built-in procedural preview that performs no model inference or network request, so the default project requests neither device permission nor a server connection.
+### Live camera and audio controls
+
+Camera and microphone input are optional and begin only after pressing the
+explicit start control inside the corresponding node (the same controls also
+appear in the Inspector). Merely adding, selecting, or wiring a device node does
+not start it. For a direct camera check, connect **Video Input · Frame** to
+**Display · Source**, press **Start camera**, and approve the browser prompt.
+
+**Audio Level is an analyzer, not an audio player or audio-through node.** It
+never sends microphone sound to the speakers, which is a feedback-safe default.
+It emits a normalized `control.f32` Level value calculated as
+`clamp((input - Floor) * Gain, 0, 1)`. Floor rejects quiet background noise and
+Gain changes analysis sensitivity; neither setting is speaker volume. Connect
+**Audio Level · Level** to any compatible control input, including **Flow Field ·
+Energy**, **Warp · Amount**, **Blend · Mix**, **Trails · Feedback**, or **Color
+Grade · Hue/Exposure/Saturation**. While connected, the incoming control replaces
+that target's inline slider value. Without microphone access, Audio Level uses a
+deterministic demo pulse.
+
+The built-in Signal Graph's Video Model starts in a procedural preview that
+performs no model inference or network request, so the default project requests
+neither device permission nor a server connection.
 
 Use **New patch** to start from Blank Canvas, Full Studio, Beat-Synced
 Color, Two-World Mixer, Pointer Bend, Mic Pulse Trails, Camera Dream, or
@@ -90,6 +111,17 @@ per browser display callback. Choose **60 fps** or **30 fps** to cap GPU
 work while keeping playback time synchronized. Fixed modes skip render slots on
 the same animation-frame scheduler, so delayed callbacks do not accumulate timer
 drift. The FPS readout is a rolling measurement of monitor renders.
+
+## Planning and unbuilt modules
+
+Read the [future-development catalog](docs/FUTURE_DEVELOPMENT.md) for the full
+planning document. Its [quick unbuilt index](docs/FUTURE_DEVELOPMENT.md#quick-index-what-is-not-built-yet)
+summarizes the next control/mapping, media, compositing, audio, device/network,
+vision, 3D, show-control, and output modules. The detailed tables below that
+index mark every item as implemented, next, planned, exploratory, bridge-backed,
+or outside the direct browser boundary. The document also includes an I/O
+matrix, dozens of example patches, delivery phases, security constraints, and a
+contribution checklist.
 
 ## Project structure
 

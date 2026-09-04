@@ -11,6 +11,7 @@ import {
   type NodeKind,
 } from '../graph';
 import { NodeParameterControls } from './NodeParameterControls';
+import { NodeMediaControls } from './NodeMediaControls';
 import { DOMAIN_LABELS, OPERATOR_META } from './operatorMeta';
 
 export interface OperatorNodeData extends Record<string, unknown> {
@@ -100,6 +101,12 @@ function OperatorNodeView({ id, data, selected, isConnectable }: NodeProps<Opera
           ))}
         </div>
       </div>
+
+      <NodeMediaControls
+        kind={data.kind}
+        params={data.params}
+        onSelect={data.onSelect}
+      />
 
       <NodeParameterControls
         nodeId={id}

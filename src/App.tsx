@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CircleHelp,
@@ -30,6 +30,7 @@ import { HelpDialog } from './components/HelpDialog';
 import type { OperatorFlowNode } from './components/OperatorNode';
 import { Inspector } from './components/Inspector';
 import { NewPatchMenu } from './components/NewPatchMenu';
+import type { OperatorInputRuntime } from './components/operatorInputRuntime';
 import { OperatorLibrary } from './components/OperatorLibrary';
 import { PreviewPanel } from './components/PreviewPanel';
 import { useAudioLevel } from './hooks/useAudioLevel';
@@ -105,6 +106,34 @@ function Studio() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const graphInputRuntime = useMemo<OperatorInputRuntime>(
+    () => ({
+      audio: {
+        inputState: audio.inputState,
+        meterLevel: audio.meterLevel,
+        enable: audio.enableMicrophone,
+        disable: audio.disableMicrophone,
+      },
+      video: {
+        inputState: videoInputState,
+        errorMessage: videoInputError,
+        facingMode: videoFacingMode,
+        enable: enableCamera,
+        disable: disableCamera,
+      },
+    }),
+    [
+      audio.disableMicrophone,
+      audio.enableMicrophone,
+      audio.inputState,
+      audio.meterLevel,
+      disableCamera,
+      enableCamera,
+      videoFacingMode,
+      videoInputError,
+      videoInputState,
+    ],
+  );
 
   const notify = useCallback((message: string, tone: 'success' | 'error' = 'success') => {
     window.clearTimeout(toastTimerRef.current);
@@ -374,6 +403,7 @@ function Studio() {
           document={graphDocument}
           selectedNodeId={selectedNodeId}
           playing={playing}
+          inputRuntime={graphInputRuntime}
           onMoveNode={moveNode}
           onDeleteNode={deleteNode}
           onDisconnect={disconnect}

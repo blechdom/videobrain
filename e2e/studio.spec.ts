@@ -400,9 +400,12 @@ test('starts camera input only after opt-in and renders its live frame', async (
   await expect(inspector.getByLabel('Camera')).toHaveValue('environment');
   await expect.poll(() => cameraRequestCount(page)).toBe(0);
 
-  await inspector.getByRole('button', { name: 'Enable camera' }).click();
+  await videoInputNode.getByRole('button', { name: 'Start camera' }).click();
   await expect.poll(() => cameraRequestCount(page)).toBe(1);
   await expect(inspector.getByText('Camera live', { exact: true })).toBeVisible();
+  await expect(
+    videoInputNode.getByRole('button', { name: 'Stop camera' }),
+  ).toBeVisible();
   await expect(
     page.locator('.preview-hud').getByText('camera', { exact: true }),
   ).toBeVisible();
@@ -460,6 +463,30 @@ test('starts camera input only after opt-in and renders its live frame', async (
     'data-rendered',
     'true',
   );
+});
+
+test('starts audio analysis from the node and shows its control output', async ({
+  page,
+}) => {
+  const audioNode = page.locator('article[aria-label="Audio Level node"]');
+  const meter = audioNode.getByRole('meter', {
+    name: 'Demo control output level',
+  });
+
+  await expect(audioNode.getByText('DEMO', { exact: true })).toBeVisible();
+  await expect(meter).toBeVisible();
+  await audioNode.getByRole('button', { name: 'Start mic' }).click();
+
+  await expect(audioNode.getByText('MIC LIVE', { exact: true })).toBeVisible();
+  await expect(
+    audioNode.getByRole('meter', { name: 'Microphone control output level' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('complementary', { name: 'Audio Level inspector' }),
+  ).toContainText('Control only — no sound output.');
+
+  await audioNode.getByRole('button', { name: 'Stop mic' }).click();
+  await expect(audioNode.getByText('DEMO', { exact: true })).toBeVisible();
 });
 
 test('opens in-app help with current nodes, I/O guidance, and contribution link', async ({

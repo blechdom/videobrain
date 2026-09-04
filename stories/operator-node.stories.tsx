@@ -11,11 +11,17 @@ import {
   type OperatorFlowNode,
 } from '../src/components/OperatorNode';
 import {
+  OperatorInputRuntimeContext,
+  type OperatorInputRuntime,
+} from '../src/components/operatorInputRuntime';
+import {
   NODE_KINDS,
   getDefaultParams,
   type GraphParamValue,
   type NodeKind,
 } from '../src/graph';
+import type { AudioInputState } from '../src/hooks/useAudioLevel';
+import type { VideoInputState } from '../src/hooks/useVideoInput';
 import './catalog.css';
 
 const NODE_TYPES = { operator: OperatorNode };
@@ -25,6 +31,9 @@ interface NodeCanvasProps {
   selectedKind?: NodeKind;
   unreachableKinds?: readonly NodeKind[];
   compact?: boolean;
+  audioState?: AudioInputState;
+  audioMeterLevel?: number;
+  videoState?: VideoInputState;
 }
 
 function NodeCanvas({
@@ -32,6 +41,9 @@ function NodeCanvas({
   selectedKind,
   unreachableKinds = [],
   compact = false,
+  audioState: initialAudioState = 'demo',
+  audioMeterLevel = 0.38,
+  videoState: initialVideoState = 'idle',
 }: NodeCanvasProps) {
   const initialSelectedId = selectedKind ? `${selectedKind}-0` : null;
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
@@ -39,6 +51,9 @@ function NodeCanvas({
     Object.fromEntries(kinds.map((kind, index) => [`${kind}-${index}`, getDefaultParams(kind)])),
   );
   const [gesture, setGesture] = useState('Select a node or tune an inline value.');
+  const [audioState, setAudioState] = useState(initialAudioState);
+  const [videoState, setVideoState] = useState(initialVideoState);
+  const [videoFacingMode, setVideoFacingMode] = useState<'user' | 'environment'>('user');
 
   const handleParamChange = useCallback(
     (nodeId: string, paramId: string, value: GraphParamValue) => {
@@ -52,6 +67,39 @@ function NodeCanvas({
       setGesture(`${nodeId} · ${paramId} = ${String(value)}`);
     },
     [],
+  );
+  const inputRuntime = useMemo<OperatorInputRuntime>(
+    () => ({
+      audio: {
+        inputState: audioState,
+        meterLevel: audioMeterLevel,
+        enable: () => {
+          setAudioState('live');
+          setGesture('Microphone simulation started');
+          return Promise.resolve();
+        },
+        disable: () => {
+          setAudioState('demo');
+          setGesture('Microphone simulation stopped');
+        },
+      },
+      video: {
+        inputState: videoState,
+        errorMessage: null,
+        facingMode: videoFacingMode,
+        enable: (facingMode) => {
+          setVideoFacingMode(facingMode);
+          setVideoState('live');
+          setGesture(`${facingMode} camera simulation started`);
+          return Promise.resolve();
+        },
+        disable: () => {
+          setVideoState('idle');
+          setGesture('Camera simulation stopped');
+        },
+      },
+    }),
+    [audioMeterLevel, audioState, videoFacingMode, videoState],
   );
 
   const nodes = useMemo<OperatorFlowNode[]>(
@@ -77,29 +125,38 @@ function NodeCanvas({
         },
       };
     }),
-    [compact, handleParamChange, kinds, paramsByNode, selectedId, unreachableKinds],
+    [
+      compact,
+      handleParamChange,
+      kinds,
+      paramsByNode,
+      selectedId,
+      unreachableKinds,
+    ],
   );
 
   return (
     <section className="vb-story">
       <div className={`vb-node-canvas ${compact ? 'vb-node-canvas--compact' : ''}`}>
-        <ReactFlow<OperatorFlowNode>
-          nodes={nodes}
-          edges={[]}
-          nodeTypes={NODE_TYPES}
-          onNodeClick={(_event, node) => setSelectedId(node.id)}
-          fitView
-          fitViewOptions={{ padding: 0.16, maxZoom: 1 }}
-          minZoom={0.18}
-          maxZoom={1.8}
-          snapToGrid
-          snapGrid={[12, 12]}
-          colorMode="dark"
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background variant={BackgroundVariant.Dots} gap={22} size={1.1} />
-          <Controls showInteractive={false} position="bottom-left" />
-        </ReactFlow>
+        <OperatorInputRuntimeContext.Provider value={inputRuntime}>
+          <ReactFlow<OperatorFlowNode>
+            nodes={nodes}
+            edges={[]}
+            nodeTypes={NODE_TYPES}
+            onNodeClick={(_event, node) => setSelectedId(node.id)}
+            fitView
+            fitViewOptions={{ padding: 0.16, maxZoom: 1 }}
+            minZoom={0.18}
+            maxZoom={1.8}
+            snapToGrid
+            snapGrid={[12, 12]}
+            colorMode="dark"
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1.1} />
+            <Controls showInteractive={false} position="bottom-left" />
+          </ReactFlow>
+        </OperatorInputRuntimeContext.Provider>
       </div>
       <output className="vb-story-event" aria-live="polite">{gesture}</output>
     </section>
@@ -114,6 +171,9 @@ const meta = {
     kinds: NODE_KINDS,
     unreachableKinds: [],
     compact: false,
+    audioState: 'demo',
+    audioMeterLevel: 0.38,
+    videoState: 'idle',
   },
   argTypes: {
     kinds: { control: false },
@@ -186,6 +246,23 @@ export const SourcesAndOutput: Story = {
     docs: {
       description: {
         story: 'Source, device-presentation, and terminal nodes shown together. The camera choices are local values only and never open a device.',
+      },
+    },
+  },
+};
+
+export const LiveDeviceInputs: Story = {
+  args: {
+    kinds: ['audioLevel', 'videoInput'],
+    compact: false,
+    audioState: 'live',
+    audioMeterLevel: 0.72,
+    videoState: 'live',
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Live device states with node-local stop controls, a processed Audio Level control meter, and the existing Gain and Floor controls.',
       },
     },
   },

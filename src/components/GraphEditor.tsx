@@ -22,12 +22,17 @@ import {
   type GraphPosition,
 } from '../graph';
 import { OperatorNode, type OperatorFlowNode } from './OperatorNode';
+import {
+  OperatorInputRuntimeContext,
+  type OperatorInputRuntime,
+} from './operatorInputRuntime';
 import { OPERATOR_META } from './operatorMeta';
 
 interface GraphEditorProps {
   document: GraphDocument;
   selectedNodeId: string | null;
   playing: boolean;
+  inputRuntime: OperatorInputRuntime;
   onMoveNode: (nodeId: string, position: GraphPosition) => void;
   onDeleteNode: (nodeId: string) => void;
   onDisconnect: (edgeId: string) => void;
@@ -73,6 +78,7 @@ export function GraphEditor({
   document,
   selectedNodeId,
   playing,
+  inputRuntime,
   onMoveNode,
   onDeleteNode,
   onDisconnect,
@@ -307,59 +313,61 @@ export function GraphEditor({
         <span>·</span>
         <span>{document.edges.length} links</span>
       </div>
-      <ReactFlow<OperatorFlowNode, Edge>
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={NODE_TYPES}
-        onNodesChange={handleNodeChanges}
-        onEdgesChange={handleEdgeChanges}
-        onConnect={handleConnect}
-        onConnectEnd={handleConnectionEnd}
-        onReconnect={handleReconnect}
-        onReconnectStart={handleReconnectStart}
-        onReconnectEnd={handleReconnectEnd}
-        isValidConnection={isValidConnection}
-        onNodeClick={(_, node) => {
-          setSelectedEdgeId(null);
-          onSelectNode(node.id);
-        }}
-        onEdgeClick={(_, edge) => {
-          setSelectedEdgeId(edge.id);
-          onSelectNode(null);
-        }}
-        onPaneClick={() => {
-          setSelectedEdgeId(null);
-          onSelectNode(null);
-        }}
-        onNodeDragStart={onGestureStart}
-        onNodeDragStop={(_, node) => {
-          onMoveNode(node.id, node.position);
-          onGestureEnd();
-        }}
-        deleteKeyCode={['Backspace', 'Delete']}
-        connectionLineStyle={{ stroke: '#d8ff5f', strokeWidth: 2 }}
-        defaultEdgeOptions={{ type: 'smoothstep' }}
-        fitView
-        fitViewOptions={{ padding: 0.12, minZoom: 0.45, maxZoom: 1.05 }}
-        minZoom={0.3}
-        maxZoom={1.8}
-        snapToGrid
-        snapGrid={[12, 12]}
-        colorMode="dark"
-      >
-        <Background variant={BackgroundVariant.Dots} gap={22} size={1.1} />
-        <Controls showInteractive={false} position="bottom-left" />
-        <MiniMap
-          position="bottom-right"
-          pannable
-          zoomable
-          nodeColor={(node) => {
-            const data = node.data as OperatorFlowNode['data'];
-            return OPERATOR_META[data.kind].accent;
+      <OperatorInputRuntimeContext.Provider value={inputRuntime}>
+        <ReactFlow<OperatorFlowNode, Edge>
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={NODE_TYPES}
+          onNodesChange={handleNodeChanges}
+          onEdgesChange={handleEdgeChanges}
+          onConnect={handleConnect}
+          onConnectEnd={handleConnectionEnd}
+          onReconnect={handleReconnect}
+          onReconnectStart={handleReconnectStart}
+          onReconnectEnd={handleReconnectEnd}
+          isValidConnection={isValidConnection}
+          onNodeClick={(_, node) => {
+            setSelectedEdgeId(null);
+            onSelectNode(node.id);
           }}
-          maskColor="rgba(4, 6, 9, 0.68)"
-        />
-      </ReactFlow>
+          onEdgeClick={(_, edge) => {
+            setSelectedEdgeId(edge.id);
+            onSelectNode(null);
+          }}
+          onPaneClick={() => {
+            setSelectedEdgeId(null);
+            onSelectNode(null);
+          }}
+          onNodeDragStart={onGestureStart}
+          onNodeDragStop={(_, node) => {
+            onMoveNode(node.id, node.position);
+            onGestureEnd();
+          }}
+          deleteKeyCode={['Backspace', 'Delete']}
+          connectionLineStyle={{ stroke: '#d8ff5f', strokeWidth: 2 }}
+          defaultEdgeOptions={{ type: 'smoothstep' }}
+          fitView
+          fitViewOptions={{ padding: 0.12, minZoom: 0.45, maxZoom: 1.05 }}
+          minZoom={0.3}
+          maxZoom={1.8}
+          snapToGrid
+          snapGrid={[12, 12]}
+          colorMode="dark"
+        >
+          <Background variant={BackgroundVariant.Dots} gap={22} size={1.1} />
+          <Controls showInteractive={false} position="bottom-left" />
+          <MiniMap
+            position="bottom-right"
+            pannable
+            zoomable
+            nodeColor={(node) => {
+              const data = node.data as OperatorFlowNode['data'];
+              return OPERATOR_META[data.kind].accent;
+            }}
+            maskColor="rgba(4, 6, 9, 0.68)"
+          />
+        </ReactFlow>
+      </OperatorInputRuntimeContext.Provider>
     </div>
   );
 }

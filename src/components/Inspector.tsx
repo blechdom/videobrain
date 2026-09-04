@@ -216,9 +216,7 @@ export function Inspector({
         <section className="inspector-section">
           <div className="section-label">Input source</div>
           <p className="inspector-description">
-            {audioInputState === 'live'
-              ? 'Microphone analysis is active in this tab.'
-              : 'Demo pulse is active. Microphone access is optional and stays on this device.'}
+            {audioStateDescription(audioInputState)}
           </p>
           <button
             type="button"
@@ -239,6 +237,21 @@ export function Inspector({
                 ? 'Requesting…'
                 : 'Enable microphone'}
           </button>
+          <p className="input-privacy-note">
+            <strong>Control only — no sound output.</strong> Audio Level measures
+            microphone loudness and emits a normalized 0–1 Level signal. It does
+            not play, monitor, mix, record, or pass through the microphone. This
+            feedback-safe default prevents the mic from feeding the speakers.
+          </p>
+          <p className="input-privacy-note">
+            Drag <strong>Level</strong> to Flow Field <strong>Energy</strong>, Warp
+            <strong> Amount</strong>, Blend <strong>Mix</strong>, Trails
+            <strong> Feedback</strong>, or Color Grade <strong>Hue</strong>,
+            <strong> Exposure</strong>, or <strong>Saturation</strong>. A connected
+            signal drives that input instead of its slider value. Gain applies
+            <code> clamp((input − Floor) × Gain, 0, 1)</code>; it changes analysis
+            sensitivity, not speaker volume.
+          </p>
         </section>
       ) : null}
 
@@ -280,9 +293,11 @@ export function Inspector({
                   : 'Try camera again'}
           </button>
           <p className="input-privacy-note">
-            Permission is requested only when you enable the camera. Frames stay
-            in this tab unless you explicitly connect this node to a networked
-            Video Model.
+            Permission is requested only when you press Start camera in the node
+            or Enable camera here; adding or wiring Video Input does not start the
+            device. For a direct check, connect <strong>Frame</strong> to Display
+            <strong> Source</strong>. Frames stay in this tab unless you explicitly
+            connect this node to a networked Video Model.
           </p>
         </section>
       ) : null}
@@ -483,6 +498,19 @@ function videoStateLabel(state: VideoInputState): string {
       return 'Camera unavailable';
     case 'error':
       return 'Camera error';
+  }
+}
+
+function audioStateDescription(state: AudioInputState): string {
+  switch (state) {
+    case 'demo':
+      return 'Demo pulse is active. Enable the microphone to analyze live loudness.';
+    case 'requesting':
+      return 'Choose Allow in the browser prompt to begin microphone analysis.';
+    case 'live':
+      return 'Microphone loudness analysis is active in this tab.';
+    case 'unavailable':
+      return 'Microphone access is unavailable or blocked. The demo pulse remains active.';
   }
 }
 

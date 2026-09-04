@@ -80,6 +80,14 @@ describe('video input inspector', () => {
 
     expect(screen.getByText('Camera off')).toBeVisible();
     expect(screen.getByText(/permission is requested only/i)).toBeVisible();
+    expect(screen.getByText(/adding or wiring Video Input does not start/i)).toBeVisible();
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === 'P' &&
+          element.textContent?.includes('connect Frame to Display Source') === true,
+      ),
+    ).toBeVisible();
     expect(props.onEnableCamera).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: 'Enable camera' }));
@@ -116,6 +124,57 @@ describe('video input inspector', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('Camera access was blocked');
     expect(screen.getByRole('button', { name: 'Try camera again' })).toBeEnabled();
+  });
+});
+
+describe('audio level inspector', () => {
+  it('explains that microphone analysis is silent and names useful targets', () => {
+    const node = createGraphNode(
+      'audioLevel',
+      { x: 0, y: 0 },
+      {},
+      'audio-1',
+    );
+
+    renderInspector({
+      node,
+      graphDocument: graphForNode(node),
+      audioInputState: 'live',
+    });
+
+    expect(screen.getByText(/control only — no sound output/i)).toBeVisible();
+    expect(
+      screen.getByText(/does not play, monitor, mix, record, or pass through/i),
+    ).toBeVisible();
+    const targetGuide = screen.getByText(
+      (_, element) =>
+        element?.tagName === 'P' &&
+        element.textContent?.replace(/\s+/g, ' ').includes('Drag Level to Flow Field Energy') === true,
+    );
+    expect(targetGuide).toHaveTextContent('Trails');
+    expect(targetGuide).toHaveTextContent('Color Grade');
+    expect(screen.getByText(/not speaker volume/i)).toBeVisible();
+  });
+
+  it('starts microphone analysis from the inspector', async () => {
+    const user = userEvent.setup();
+    const node = createGraphNode(
+      'audioLevel',
+      { x: 0, y: 0 },
+      {},
+      'audio-1',
+    );
+    const onEnableMicrophone = vi.fn().mockResolvedValue(undefined);
+
+    renderInspector({
+      node,
+      graphDocument: graphForNode(node),
+      onEnableMicrophone,
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Enable microphone' }));
+
+    expect(onEnableMicrophone).toHaveBeenCalledOnce();
   });
 });
 

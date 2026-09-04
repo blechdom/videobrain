@@ -29,6 +29,29 @@ describe('HelpDialog', () => {
     expect(screen.getByText('Model connector preview')).toBeVisible();
     expect(screen.getByText('AI Chat and Video Model')).toBeVisible();
     expect(screen.getByText(/entering an arbitrary vendor URL/)).toBeVisible();
+    expect(screen.getByText('Using Audio Level')).toBeVisible();
+    expect(screen.getByText(/Audio Level analyzes sound/)).toBeVisible();
+    expect(screen.getByText(/Flow Field · Energy/)).toBeVisible();
+    expect(screen.getByText(/Floor rejects.*Gain controls/)).toBeVisible();
+    expect(screen.getByText('Using Video Input')).toBeVisible();
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === 'P' &&
+          element.textContent
+            ?.replace(/\s+/g, ' ')
+            .includes('connect Frame to Display Source') === true,
+      ),
+    ).toBeVisible();
+    expect(screen.getByText('Not built yet')).toBeVisible();
+    expect(screen.getByText('Control and mapping')).toBeVisible();
+    expect(screen.getByText('Vision and spatial media')).toBeVisible();
+    expect(
+      screen.getByRole('link', { name: /comprehensive node and module plan/ }),
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/blechdom/videobrain/blob/main/docs/FUTURE_DEVELOPMENT.md',
+    );
     expect(screen.getByText(/Display sync follows/)).toBeVisible();
     expect(
       screen.getByRole('link', { name: /model adapter protocol/ }),
