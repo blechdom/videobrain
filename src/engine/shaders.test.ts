@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { NodeKind } from '../graph';
+import { OPERATOR_DEFINITIONS, type NodeKind } from '../graph';
 import { FRAME_FRAGMENT_SHADERS } from './shaders';
 
 function shaderFor(kind: NodeKind): string {
@@ -10,6 +10,16 @@ function shaderFor(kind: NodeKind): string {
 }
 
 describe('frame shader alpha contracts', () => {
+  it('registers a shader for every frame and display operator', () => {
+    const renderKinds = OPERATOR_DEFINITIONS.filter(
+      ({ domain }) => domain === 'frame' || domain === 'display',
+    ).map(({ kind }) => kind);
+
+    expect(
+      renderKinds.filter((kind) => FRAME_FRAGMENT_SHADERS[kind] === undefined),
+    ).toEqual([]);
+  });
+
   it('preserves source alpha through coordinate and color processors', () => {
     const warp = shaderFor('warp');
     const colorGrade = shaderFor('colorGrade');
@@ -37,5 +47,31 @@ describe('frame shader alpha contracts', () => {
     expect(blend).toContain('mix(a.rgb * a.a, combinedPremultiplied, amount)');
     expect(blend).toContain('mix(a.a, combinedAlpha, amount)');
     expect(blend).not.toContain('outColor = vec4(mix(a, combined');
+  });
+
+  it('filters Blur samples in premultiplied form before returning straight alpha', () => {
+    const blur = shaderFor('blur');
+
+    expect(blur).toContain('sampleColor.rgb * sampleColor.a');
+    expect(blur).toContain('premultiplied / alpha');
+    expect(blur).toContain('for (int y = -2; y <= 2; y++)');
+    expect(blur).toContain('for (int x = -2; x <= 2; x++)');
+  });
+
+  it('emits an opaque Threshold matte and applies Mask only to source alpha', () => {
+    const threshold = shaderFor('threshold');
+    const mask = shaderFor('mask');
+
+    expect(threshold).toContain('outColor = vec4(vec3(clamp(matte, 0.0, 1.0)), 1.0);');
+    expect(mask).toContain('outColor = vec4(source.rgb, source.a * factor);');
+  });
+
+  it('implements Composite rules in premultiplied color and returns straight alpha', () => {
+    const composite = shaderFor('composite');
+
+    expect(composite).toContain('background.rgb * backgroundAlpha');
+    expect(composite).toContain('foreground.rgb * foregroundAlpha');
+    expect(composite).toContain('premultiplied / alpha');
+    expect(composite).toContain('foregroundPremultiplied * (1.0 - backgroundAlpha)');
   });
 });

@@ -44,6 +44,21 @@ export const GRAPH_PRESETS = [
     description: 'Use XY Pad, mapped rotation, and scale to explore Transform 2D.',
   },
   {
+    id: 'mask-composite-lab',
+    title: 'Mask & Composite Lab',
+    description: 'Build a soft animated matte, apply it, and layer the result over color.',
+  },
+  {
+    id: 'beat-switcher',
+    title: 'Beat Switcher',
+    description: 'Step through four visual sources over each tempo-locked bar.',
+  },
+  {
+    id: 'audio-soft-focus',
+    title: 'Audio Soft Focus',
+    description: 'Map demo or microphone energy into a clearly visible blur radius.',
+  },
+  {
     id: 'pointer-bend',
     title: 'Pointer Bend',
     description: 'Move and click over the monitor to shape a flowing image.',
@@ -76,6 +91,29 @@ export const FOUNDATION_NODE_EXAMPLES = {
   transform2d: ['smooth-pointer', 'transform-playground'],
 } as const satisfies Record<
   'constant' | 'math' | 'mapRange' | 'smooth' | 'transform2d',
+  readonly GraphPresetId[]
+>;
+
+export const NODE_EXAMPLES = {
+  ...FOUNDATION_NODE_EXAMPLES,
+  solid: ['mask-composite-lab'],
+  threshold: ['mask-composite-lab'],
+  mask: ['mask-composite-lab'],
+  composite: ['mask-composite-lab'],
+  frameSwitch: ['beat-switcher'],
+  blur: ['audio-soft-focus'],
+} as const satisfies Record<
+  | 'constant'
+  | 'math'
+  | 'mapRange'
+  | 'smooth'
+  | 'transform2d'
+  | 'solid'
+  | 'threshold'
+  | 'mask'
+  | 'composite'
+  | 'frameSwitch'
+  | 'blur',
   readonly GraphPresetId[]
 >;
 
@@ -408,6 +446,181 @@ function createTransformPlaygroundGraph(): GraphDocument {
   );
 }
 
+function createMaskCompositeLabGraph(): GraphDocument {
+  return graph(
+    [
+      createGraphNode('time', { x: -820, y: -260 }, {}, 'mask-lab-time'),
+      createGraphNode(
+        'solid',
+        { x: -540, y: -460 },
+        { red: 0.035, green: 0.02, blue: 0.12, alpha: 1 },
+        'mask-lab-background',
+      ),
+      createGraphNode(
+        'plasma',
+        { x: -540, y: -160 },
+        { scale: 4.2, speed: 0.2, energy: 0.48, hue: 0.16 },
+        'mask-lab-source',
+      ),
+      createGraphNode(
+        'cells',
+        { x: -540, y: 180 },
+        { scale: 7.6, speed: 0.13, contrast: 1.8 },
+        'mask-lab-matte-source',
+      ),
+      createGraphNode(
+        'threshold',
+        { x: -260, y: 180 },
+        { channel: 'luminance', level: 0.5, softness: 0.12, invert: 'off' },
+        'mask-lab-threshold',
+      ),
+      createGraphNode(
+        'mask',
+        { x: 20, y: -80 },
+        { channel: 'luminance', amount: 1, invert: 'off' },
+        'mask-lab-mask',
+      ),
+      createGraphNode(
+        'composite',
+        { x: 300, y: -220 },
+        { operation: 'sourceOver', opacity: 0.94 },
+        'mask-lab-composite',
+      ),
+      createGraphNode(
+        'display',
+        { x: 600, y: -220 },
+        {},
+        'mask-lab-display',
+      ),
+    ],
+    [
+      edge('mask-lab-time-source', 'mask-lab-time', 'value', 'mask-lab-source', 'time'),
+      edge('mask-lab-time-matte', 'mask-lab-time', 'value', 'mask-lab-matte-source', 'time'),
+      edge('mask-lab-matte-threshold', 'mask-lab-matte-source', 'frame', 'mask-lab-threshold', 'source'),
+      edge('mask-lab-source-mask', 'mask-lab-source', 'frame', 'mask-lab-mask', 'source'),
+      edge('mask-lab-threshold-mask', 'mask-lab-threshold', 'frame', 'mask-lab-mask', 'mask'),
+      edge('mask-lab-background-composite', 'mask-lab-background', 'frame', 'mask-lab-composite', 'background'),
+      edge('mask-lab-mask-composite', 'mask-lab-mask', 'frame', 'mask-lab-composite', 'foreground'),
+      edge('mask-lab-composite-display', 'mask-lab-composite', 'frame', 'mask-lab-display', 'source'),
+    ],
+  );
+}
+
+function createBeatSwitcherGraph(): GraphDocument {
+  return graph(
+    [
+      createGraphNode('time', { x: -820, y: -420 }, {}, 'beat-switch-time'),
+      createGraphNode(
+        'beatClock',
+        { x: -540, y: -440 },
+        { bpm: 120, beatsPerBar: 4, pulseWidth: 0.12, offset: 0 },
+        'beat-switch-clock',
+      ),
+      createGraphNode(
+        'mapRange',
+        { x: -260, y: -440 },
+        { inMin: 0, inMax: 1, outMin: -0.5, outMax: 3.5, boundary: 'clamp' },
+        'beat-switch-map',
+      ),
+      createGraphNode(
+        'plasma',
+        { x: -540, y: -160 },
+        { scale: 3.2, speed: 0.18, energy: 0.42, hue: -0.32 },
+        'beat-switch-a',
+      ),
+      createGraphNode(
+        'cells',
+        { x: -540, y: 80 },
+        { scale: 5.4, speed: -0.16, contrast: 2.3 },
+        'beat-switch-b',
+      ),
+      createGraphNode(
+        'plasma',
+        { x: -260, y: -160 },
+        { scale: 8.2, speed: -0.28, energy: 0.72, hue: 0.34 },
+        'beat-switch-c',
+      ),
+      createGraphNode(
+        'cells',
+        { x: -260, y: 80 },
+        { scale: 15.5, speed: 0.34, contrast: 1.45 },
+        'beat-switch-d',
+      ),
+      createGraphNode(
+        'frameSwitch',
+        { x: 60, y: -100 },
+        { index: 0 },
+        'beat-switch-router',
+      ),
+      createGraphNode(
+        'display',
+        { x: 370, y: -100 },
+        {},
+        'beat-switch-display',
+      ),
+    ],
+    [
+      edge('beat-switch-time-clock', 'beat-switch-time', 'value', 'beat-switch-clock', 'time'),
+      edge('beat-switch-clock-map', 'beat-switch-clock', 'bar', 'beat-switch-map', 'value'),
+      edge('beat-switch-map-router', 'beat-switch-map', 'value', 'beat-switch-router', 'index'),
+      edge('beat-switch-time-a', 'beat-switch-time', 'value', 'beat-switch-a', 'time'),
+      edge('beat-switch-time-b', 'beat-switch-time', 'value', 'beat-switch-b', 'time'),
+      edge('beat-switch-time-c', 'beat-switch-time', 'value', 'beat-switch-c', 'time'),
+      edge('beat-switch-time-d', 'beat-switch-time', 'value', 'beat-switch-d', 'time'),
+      edge('beat-switch-a-router', 'beat-switch-a', 'frame', 'beat-switch-router', 'a'),
+      edge('beat-switch-b-router', 'beat-switch-b', 'frame', 'beat-switch-router', 'b'),
+      edge('beat-switch-c-router', 'beat-switch-c', 'frame', 'beat-switch-router', 'c'),
+      edge('beat-switch-d-router', 'beat-switch-d', 'frame', 'beat-switch-router', 'd'),
+      edge('beat-switch-router-display', 'beat-switch-router', 'frame', 'beat-switch-display', 'source'),
+    ],
+  );
+}
+
+function createAudioSoftFocusGraph(): GraphDocument {
+  return graph(
+    [
+      createGraphNode('time', { x: -620, y: -260 }, {}, 'soft-focus-time'),
+      createGraphNode(
+        'audioLevel',
+        { x: -620, y: 120 },
+        { gain: 2.4, floor: 0.025 },
+        'soft-focus-audio',
+      ),
+      createGraphNode(
+        'mapRange',
+        { x: -330, y: 120 },
+        { inMin: 0, inMax: 1, outMin: 0, outMax: 18, boundary: 'clamp' },
+        'soft-focus-map',
+      ),
+      createGraphNode(
+        'plasma',
+        { x: -330, y: -180 },
+        { scale: 7.4, speed: 0.22, energy: 0.5, hue: -0.08 },
+        'soft-focus-field',
+      ),
+      createGraphNode(
+        'blur',
+        { x: -20, y: -120 },
+        { radius: 4 },
+        'soft-focus-blur',
+      ),
+      createGraphNode(
+        'display',
+        { x: 290, y: -120 },
+        {},
+        'soft-focus-display',
+      ),
+    ],
+    [
+      edge('soft-focus-time-field', 'soft-focus-time', 'value', 'soft-focus-field', 'time'),
+      edge('soft-focus-audio-map', 'soft-focus-audio', 'value', 'soft-focus-map', 'value'),
+      edge('soft-focus-map-blur', 'soft-focus-map', 'value', 'soft-focus-blur', 'radius'),
+      edge('soft-focus-field-blur', 'soft-focus-field', 'frame', 'soft-focus-blur', 'source'),
+      edge('soft-focus-blur-display', 'soft-focus-blur', 'frame', 'soft-focus-display', 'source'),
+    ],
+  );
+}
+
 function createPointerBendGraph(): GraphDocument {
   return graph(
     [
@@ -680,6 +893,9 @@ const PRESET_FACTORIES: Readonly<
   'control-math': createControlMathGraph,
   'smooth-pointer': createSmoothPointerGraph,
   'transform-playground': createTransformPlaygroundGraph,
+  'mask-composite-lab': createMaskCompositeLabGraph,
+  'beat-switcher': createBeatSwitcherGraph,
+  'audio-soft-focus': createAudioSoftFocusGraph,
   'pointer-bend': createPointerBendGraph,
   'mic-pulse-trails': createMicPulseTrailsGraph,
   'camera-dream': createCameraDreamGraph,

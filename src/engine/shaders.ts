@@ -205,6 +205,18 @@ void main() {
 }
 `;
 
+const solid = `#version 300 es
+precision highp float;
+
+out vec4 outColor;
+
+uniform vec4 uColor;
+
+void main() {
+  outColor = clamp(uColor, 0.0, 1.0);
+}
+`;
+
 const transform2d = `#version 300 es
 precision highp float;
 
@@ -280,6 +292,189 @@ void main() {
   color.r = texture(uSource, fract(uv + offset + vec2(split, 0.0))).r;
   color.b = texture(uSource, fract(uv + offset - vec2(split, 0.0))).b;
   outColor = vec4(color, source.a);
+}
+`;
+
+const blur = `#version 300 es
+precision highp float;
+
+in vec2 vUv;
+out vec4 outColor;
+
+uniform sampler2D uSource;
+uniform vec2 uResolution;
+uniform float uRadius;
+
+void main() {
+  vec2 texel = 1.0 / max(uResolution, vec2(1.0));
+  float spacing = clamp(uRadius, 0.0, 24.0) * 0.5;
+  vec4 accumulated = vec4(0.0);
+
+  for (int y = -2; y <= 2; y++) {
+    for (int x = -2; x <= 2; x++) {
+      vec2 offset = vec2(float(x), float(y)) * texel * spacing;
+      vec4 sampleColor = texture(uSource, clamp(vUv + offset, 0.0, 1.0));
+      accumulated.rgb += sampleColor.rgb * sampleColor.a;
+      accumulated.a += sampleColor.a;
+    }
+  }
+
+  float alpha = accumulated.a / 25.0;
+  vec3 premultiplied = accumulated.rgb / 25.0;
+  vec3 color = alpha > 0.00001 ? premultiplied / alpha : vec3(0.0);
+  outColor = vec4(clamp(color, 0.0, 1.0), clamp(alpha, 0.0, 1.0));
+}
+`;
+
+const threshold = `#version 300 es
+precision highp float;
+
+in vec2 vUv;
+out vec4 outColor;
+
+uniform sampler2D uSource;
+uniform float uChannel;
+uniform float uLevel;
+uniform float uSoftness;
+uniform float uInvert;
+
+float selectedChannel(vec4 value) {
+  if (uChannel < 0.5) {
+    return dot(value.rgb, vec3(0.2126, 0.7152, 0.0722));
+  }
+  if (uChannel < 1.5) {
+    return value.r;
+  }
+  if (uChannel < 2.5) {
+    return value.g;
+  }
+  if (uChannel < 3.5) {
+    return value.b;
+  }
+  return value.a;
+}
+
+void main() {
+  float value = selectedChannel(texture(uSource, vUv));
+  float softness = clamp(uSoftness, 0.0, 0.5);
+  float matte = softness > 0.00001
+    ? smoothstep(uLevel - softness, uLevel + softness, value)
+    : step(uLevel, value);
+  matte = mix(matte, 1.0 - matte, step(0.5, uInvert));
+  outColor = vec4(vec3(clamp(matte, 0.0, 1.0)), 1.0);
+}
+`;
+
+const mask = `#version 300 es
+precision highp float;
+
+in vec2 vUv;
+out vec4 outColor;
+
+uniform sampler2D uSource;
+uniform sampler2D uMask;
+uniform float uChannel;
+uniform float uAmount;
+uniform float uInvert;
+
+float selectedChannel(vec4 value) {
+  if (uChannel < 0.5) {
+    return dot(value.rgb, vec3(0.2126, 0.7152, 0.0722));
+  }
+  if (uChannel < 1.5) {
+    return value.r;
+  }
+  if (uChannel < 2.5) {
+    return value.g;
+  }
+  if (uChannel < 3.5) {
+    return value.b;
+  }
+  return value.a;
+}
+
+void main() {
+  vec4 source = texture(uSource, vUv);
+  float matte = clamp(selectedChannel(texture(uMask, vUv)), 0.0, 1.0);
+  matte = mix(matte, 1.0 - matte, step(0.5, uInvert));
+  float factor = mix(1.0, matte, clamp(uAmount, 0.0, 1.0));
+  outColor = vec4(source.rgb, source.a * factor);
+}
+`;
+
+const composite = `#version 300 es
+precision highp float;
+
+in vec2 vUv;
+out vec4 outColor;
+
+uniform sampler2D uBackground;
+uniform sampler2D uForeground;
+uniform float uOpacity;
+uniform float uOperation;
+
+void main() {
+  vec4 background = texture(uBackground, vUv);
+  vec4 foreground = texture(uForeground, vUv);
+  float backgroundAlpha = clamp(background.a, 0.0, 1.0);
+  float foregroundAlpha = clamp(foreground.a * uOpacity, 0.0, 1.0);
+  vec3 backgroundPremultiplied = background.rgb * backgroundAlpha;
+  vec3 foregroundPremultiplied = foreground.rgb * foregroundAlpha;
+  vec3 premultiplied;
+  float alpha;
+
+  if (uOperation < 0.5) {
+    premultiplied = foregroundPremultiplied +
+      backgroundPremultiplied * (1.0 - foregroundAlpha);
+    alpha = foregroundAlpha + backgroundAlpha * (1.0 - foregroundAlpha);
+  } else if (uOperation < 1.5) {
+    premultiplied = backgroundPremultiplied +
+      foregroundPremultiplied * (1.0 - backgroundAlpha);
+    alpha = backgroundAlpha + foregroundAlpha * (1.0 - backgroundAlpha);
+  } else if (uOperation < 2.5) {
+    premultiplied = foregroundPremultiplied * backgroundAlpha;
+    alpha = foregroundAlpha * backgroundAlpha;
+  } else if (uOperation < 3.5) {
+    premultiplied = foregroundPremultiplied * (1.0 - backgroundAlpha);
+    alpha = foregroundAlpha * (1.0 - backgroundAlpha);
+  } else if (uOperation < 4.5) {
+    premultiplied = foregroundPremultiplied * backgroundAlpha +
+      backgroundPremultiplied * (1.0 - foregroundAlpha);
+    alpha = backgroundAlpha;
+  } else {
+    premultiplied = foregroundPremultiplied * (1.0 - backgroundAlpha) +
+      backgroundPremultiplied * (1.0 - foregroundAlpha);
+    alpha = foregroundAlpha * (1.0 - backgroundAlpha) +
+      backgroundAlpha * (1.0 - foregroundAlpha);
+  }
+
+  vec3 color = alpha > 0.00001 ? premultiplied / alpha : vec3(0.0);
+  outColor = vec4(clamp(color, 0.0, 1.0), clamp(alpha, 0.0, 1.0));
+}
+`;
+
+const frameSwitch = `#version 300 es
+precision highp float;
+
+in vec2 vUv;
+out vec4 outColor;
+
+uniform sampler2D uA;
+uniform sampler2D uB;
+uniform sampler2D uC;
+uniform sampler2D uD;
+uniform float uIndex;
+
+void main() {
+  if (uIndex < 0.5) {
+    outColor = texture(uA, vUv);
+  } else if (uIndex < 1.5) {
+    outColor = texture(uB, vUv);
+  } else if (uIndex < 2.5) {
+    outColor = texture(uC, vUv);
+  } else {
+    outColor = texture(uD, vUv);
+  }
 }
 `;
 
@@ -401,10 +596,16 @@ void main() {
 export const FRAME_FRAGMENT_SHADERS: Partial<Record<NodeKind, string>> = {
   videoInput,
   videoModel,
+  solid,
   plasma,
   cells,
   transform2d,
   warp,
+  blur,
+  threshold,
+  mask,
+  composite,
+  frameSwitch,
   blend,
   trails,
   colorGrade,

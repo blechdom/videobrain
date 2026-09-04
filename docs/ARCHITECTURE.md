@@ -60,22 +60,41 @@ A node is a typed transformation with named input ports, output ports, and param
 
 Node instances contain only project data: identity, kind, position, parameter values, and presentation state. GPU handles, media streams, compiled programs, and timing samples are runtime data and must never be serialized into the project.
 
+The operator library's category is discovery metadata, not graph semantics. Its
+ordered groups are Timing, Control, Interaction & AI, Inputs, Generators, Image
+Processing, Compositing, and Output. A category can change where a node is found
+without changing its serialized kind, port types, or runtime domain. Category
+IDs and their intended growth boundaries are defined in
+[Graph Protocol Strategy](GRAPH_PROTOCOL_STRATEGY.md#operator-library-categories).
+
 ### Port and edge
 
 Every port has a data type. An edge is valid only when the source and destination types are compatible and the destination has capacity. Cross-type behavior is represented by an explicit adapter node rather than an implicit conversion.
 
-Initial data types are:
+Ports also have explicit indexes in their operator contract. Stable port IDs
+remain the serialized connection identity; indexes express semantic input order
+for inspection, multi-input processing, and future variadic ports. Edge-array
+order and canvas position never determine which input is A, B, foreground, mask,
+or selector.
+
+Current and canonical planned data types are:
 
 | Type | Meaning | MVP |
 | --- | --- | --- |
 | `frame.rgba` | A two-dimensional GPU color image | Yes |
 | `control.f32` | A scalar evaluated on the CPU | Yes |
 | `text.utf8` | Bounded UTF-8 authoring text, currently used for model prompts | Yes |
-| `event` | A discrete occurrence with an optional payload | Future |
-| `record` | Structured or tabular data | Future |
-| `geometry` | Points, attributes, and primitives | Future |
+| `control.bool` | Sustained logic state | Future |
+| `event.trigger` | A discrete occurrence with an optional timestamp and bounded payload | Future |
+| `control.vec2`, `control.vec3`, `control.vec4` | Short fixed-size coordinates, colors, or sensor values | Future |
+| `audio.block` | Timestamped sample-rate audio with channel metadata | Future |
+| `audio.spectrum` | Bounded FFT bins with sample-rate/window metadata | Future |
+| `data.table` | Typed named rows and columns | Future |
+| `data.json` | Bounded structured messages | Future |
+| `frame.depth` | A depth image with units and calibration metadata | Future |
+| `geometry.points` / `geometry.mesh` | GPU spatial data with explicit attributes | Future |
 
-Parameter modulation is part of the dependency graph. Numeric parameters may expose a `control.f32` input, while their literal project value remains available when no edge supplies that input. Map Range makes scaling, offsetting, clamping, wrapping, and folding explicit in the graph; richer per-port mapping policies remain a future extension.
+Parameter modulation is part of the dependency graph. Numeric parameters may expose a `control.f32` input. The saved literal is always retained; a compatible connected value overrides it only for runtime evaluation, and disconnecting restores the literal unchanged. Map Range makes scaling, offsetting, clamping, wrapping, and folding explicit in the graph; richer per-port mapping policies remain a future extension. Units and ranges are part of the parameter contract and never change in place without migration.
 
 ### Producer, processor, and output
 
@@ -87,7 +106,15 @@ These roles describe execution behavior; they are not separate object types.
 
 ### Module
 
-A module is a reusable nested graph with declared public ports and parameters. Modules are outside the MVP, but project identifiers and paths must allow hierarchy later. Runtime code must interact with modules through their public contract rather than reaching into their internal nodes.
+A module is a reusable nested graph with declared public ports, parameters,
+capability needs, reset behavior, and a contract version. Modules are outside
+the MVP, but project identifiers and paths must allow hierarchy later. External
+edges and automation terminate on stable public port IDs; runtime code and
+clients must not reach through that boundary to depend on private internal
+nodes. Internal IDs are preserved for module migrations, while incompatible
+public changes require a new version or an explicit migration. A planner may
+flatten a module internally only when inspection can still explain the public
+boundary.
 
 ## Project and state ownership
 
@@ -100,6 +127,48 @@ VideoBrain has three kinds of state:
 Project changes go through commands in a central store. Commands are the unit of validation, undo, redo, persistence, collaboration, and future automation. Rendering code reads immutable project snapshots and publishes runtime status through a separate, throttled channel. It must not write frame-by-frame values into the authoring store.
 
 The project file is versioned JSON. The POC rejects unsupported schemas or node kinds without replacing the open project. A future migration layer can preserve unknown node kinds as disabled placeholders so opening a newer project does not destroy data.
+
+### Read-only graph protocol
+
+The application now exposes an in-process operator catalog and graph inspection
+surface from the same registry and compiler used at runtime. Catalog inspection
+reports typed/indexed ports, parameter contracts and layout hints, static
+execution costs, graph limits, and versions. Graph inspection reports input
+bindings, validation issues, output-root reachability, inactive nodes, execution
+order, aggregate visual-pass/render-target cost, and reachable stateful nodes
+without rendering or mutating a project.
+
+Project schema, operator catalog, and inspection protocol versions are separate
+compatibility axes. Stable node UUIDs plus serialized kind, port, and parameter
+IDs are the durable identity layer. Titles, labels, editor position, and other
+presentation can evolve without changing an edge contract. See
+[Graph Protocol Strategy](GRAPH_PROTOCOL_STRATEGY.md) for additive-change rules,
+future channel/buffer signals, capability negotiation, and the planned query and
+transaction surface.
+
+The installed manual-derived graph knowledge MCP is a high-value architectural
+reference for future node waves. When relevant, it helps compare typed
+contracts, port ordering, execution/state patterns, and representative graph
+structures. It is not a mandatory gate, runtime dependency, or second source of
+graph truth. The VideoBrain registry, compiler, browser capability model,
+product goals, and documented invariants remain authoritative.
+
+Future protocol mutation is allowed only through bounded typed commands that
+use an expected graph revision and idempotent request ID, validate the whole
+transaction, and either commit it atomically or preserve the last valid graph.
+Transport adapters must not expose arbitrary source-code or command-string
+evaluation.
+
+### Architecture review gate
+
+Every node proposal must identify its typed signal family, explicit indexed
+ports, stable IDs and defaults, parameter/input precedence, runtime domain and
+clock, demand-root behavior, resource budget, state/reset contract, capability
+needs, compatibility impact, and an output-reachable teaching patch. Each
+implemented wave also updates catalog/inspection coverage, Help, an operator
+story, a complete graph story, and the automated all-node example check. The
+full checklist and priority ladder live in
+[Graph Protocol Strategy](GRAPH_PROTOCOL_STRATEGY.md#module-development-gate).
 
 ## Execution model
 
@@ -115,6 +184,13 @@ A structural edit creates a new graph revision. The planner then:
 6. reports actionable errors before the runtime replaces its last valid plan.
 
 The POC recompiles a small graph snapshot after any project change. A later planner can distinguish structural and parameter-only revisions and add resource-lifetime planning without changing graph semantics.
+
+Display, recording, streaming, and future gateway outputs are demand roots.
+Disconnected branches remain valid authoring material but do not execute,
+request permissions, open connections, or allocate runtime resources. Current
+inspection distinguishes inactive, invalid, and actively scheduled nodes;
+future capability-aware inspection must add a separate permission- or
+adapter-blocked state.
 
 ### Visual tick
 
@@ -142,6 +218,12 @@ An ordinary cycle is invalid. A stateful processor is the explicit boundary for 
 
 The GPU implementation uses two textures and swaps their roles after a successful tick. A failed or cancelled tick must not expose a partially written state.
 
+Every retained-state node must eventually declare its initial value, owning
+clock, pause behavior, reset/seek behavior, and whether a disconnected or
+inactive interval advances state. Current inspection identifies which reachable
+nodes retain state; future execution metadata should expose the fuller contract
+instead of leaving it as an accidental consequence of renderer lifetime.
+
 ### Time domains
 
 Visual rendering and audio processing have different clocks.
@@ -152,6 +234,13 @@ Visual rendering and audio processing have different clocks.
 - Camera and microphone analysis provide the most recent available snapshot.
 - Model connections run on network/request time and publish only complete decoded frames.
 - Future sample-accurate audio runs in an audio worklet and exchanges bounded control summaries with the visual runtime.
+
+Future audio nodes exchange timestamped `audio.block` or spectrum buffers with
+declared sample rate, channel layout, window size, and overflow policy. An
+explicit resampler/analyzer converts those signals into visual-rate controls.
+The visual scheduler must never directly drive sample-critical audio work, and
+an amplitude control must never be presented as though it were monitorable
+audio.
 
 Node behavior uses monotonic elapsed time rather than assuming a fixed frame rate. Stateful simulations may use a fixed internal step with a capped catch-up count so a suspended tab cannot cause an unbounded burst of work.
 
@@ -169,6 +258,12 @@ The POC renderer owns:
 - per-node textures and framebuffer lifetimes;
 - a neutral fallback texture for missing or failed inputs;
 - presentation and runtime diagnostics.
+
+The current frame set includes procedural and solid producers; transform, warp,
+blur, threshold, mask, blend, Porter-Duff composite, color-grade, and retained
+trail processors; a four-input frame switch; camera/model producers; and Display.
+Threshold intentionally produces a visible frame, while Mask is the explicit
+step that applies a selected channel to source alpha.
 
 Resolution is inherited from the primary frame input unless a node explicitly overrides it. The output owns the default project resolution. GPU readback is excluded from the normal frame path because it stalls the pipeline; previews and exports must use bounded, intentional paths.
 
@@ -213,6 +308,7 @@ The browser does not host or launch the model and does not translate arbitrary v
 | Model connector | Compatible HTTP/WebSocket sessions, bounded images, transient credentials | Vendor-specific assumptions or saved secrets |
 | Persistence | Load, validate, save, autosave | Live GPU objects |
 | Diagnostics | Errors, evaluation counts, timing summaries | Unthrottled project writes |
+| Protocol inspection | Catalog contracts, bindings, reachability, execution order | A second graph model or unvalidated mutations |
 
 Dependency direction should remain one-way: the editor issues commands to the project store; the planner consumes project snapshots; runtimes consume plans; diagnostics flow back as read-only observations.
 

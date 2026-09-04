@@ -24,19 +24,39 @@ Priority labels used below:
 
 ## Product direction
 
-VideoBrain should become an approachable live-media instrument, not merely a large list of effects. Five principles should guide the catalog:
+VideoBrain should become an approachable live-media instrument, not merely a large list of effects. Six principles should guide the catalog:
 
 1. **A useful patch opens instantly.** The default project requires no login, server, asset download, or device permission.
 2. **Signals have clear types.** Invalid connections are rejected before they enter project state, and conversion is always explicit.
 3. **The graph describes intent; the runtime owns resources.** Cameras, microphones, sockets, GPU textures, and device handles are session state and never serialized into project JSON.
 4. **Local-first remains the baseline.** Network and cloud features extend the instrument; they do not become prerequisites for editing or playback.
 5. **Live reliability is a feature.** Preflight checks, deterministic reset, useful errors, stable timing, and graceful quality reduction matter as much as visual breadth.
+6. **Structure comes before catalog size.** Prioritize missing graph roles and complete teaching paths over isolated effects. Every node must have an inspectable contract and an example that proves why it belongs.
 
 The most common creative workflows seen across the real-time visual community are strong guideposts: audio-reactive imagery, multi-layer VJ systems, projection mapping, feedback, GPU particles, camera and depth interaction, hand/body/face tracking, LED pixel mapping, lighting control, remote audience input, multi-camera switching, generative 3D scenes, network video, and increasingly ML-assisted live performance.
 
+### Research guidance
+
+The installed, manual-derived graph knowledge MCP is a high-value architectural
+input for future node-wave proposals. Consult its operator catalog, connection
+rules, graph templates, runtime descriptions, and—when safely
+available—read-only live graph inspection when they can clarify recurring
+structures under the editor surface. Record useful findings as a product-neutral
+contract: typed inputs/outputs, explicit port order, parameter fallback and
+binding behavior, demand/cook trigger, clock, state/reset boundary, capability
+needs, and the smallest useful example graph.
+
+This research should be weighted strongly when it is relevant, but it is not a
+mandatory release gate and does not define VideoBrain's names, UI, saved format,
+or runtime. The local registry and compiler remain the single source of truth.
+Any future MCP or network adapter must expose that same truth through versioned
+inspection and validated commands rather than building a second graph model.
+The complete guidance is in
+[Graph Protocol Strategy](GRAPH_PROTOCOL_STRATEGY.md#research-informed-design-practice).
+
 ## Current proof of concept
 
-The app currently opens the permission-free **Signal Graph** with three signal types, a demand-rooted execution plan, WebGL2 multipass renderer, editor history, bounded JSON persistence, live diagnostics, responsive UI, and an accessible New patch menu with Blank Canvas plus ten complete starter graphs. Its model node defaults to a built-in visual preview; compatible external adapters are optional.
+The app currently opens the permission-free **Signal Graph** with three signal types, a demand-rooted execution plan, WebGL2 multipass renderer, editor history, bounded JSON persistence, live diagnostics, responsive UI, and an accessible New patch menu with Blank Canvas plus thirteen complete starter graphs. Its model node defaults to a built-in visual preview; compatible external adapters are optional.
 
 ### Implemented node catalog
 
@@ -55,14 +75,47 @@ The app currently opens the permission-free **Signal Graph** with three signal t
 | Text | ✅ AI Chat | Bounded positive/negative prompt authoring with a `text.utf8` prompt output |
 | Frame input | ✅ Video Input | Opt-in live camera frames with front/rear preference, cover/contain/stretch fit, and mirroring |
 | Frame model | ✅ Video Model | Built-in procedural visual preview plus compatible user-run WebSocket/HTTP adapter modes |
+| Frame source | ✅ Solid | Flat RGBA color with independently controllable channels |
 | Frame source | ✅ Flow Field | Procedural animated color field with time and energy modulation |
 | Frame source | ✅ Cells | Procedural animated cellular field |
 | Frame process | ✅ Warp | Flowing coordinate distortion with a control input for amount |
 | Frame process | ✅ Blend | Normal, screen, add, and multiply composition of two frames |
+| Frame process | ✅ Threshold | Soft luminance or RGBA-channel threshold with optional inversion |
+| Frame process | ✅ Mask | Applies luminance or an RGBA channel to source alpha with amount and inversion |
+| Frame process | ✅ Composite | Six Porter-Duff operations with a controllable foreground opacity |
+| Frame process | ✅ Frame Switch | Index-selects one of four frame inputs |
+| Frame process | ✅ Blur | Bounded, control-driven soft focus radius |
 | Frame process | ✅ Trails | Retained-frame accumulation with feedback control |
 | Frame process | ✅ Color Grade | Hue, exposure, contrast, and saturation adjustment |
 | Frame process | ✅ Transform 2D | Translation, scale, rotation, pivot, and transparent/clamp/repeat/mirror edge behavior |
 | Output | ✅ Display | Marks a frame path for presentation on the output stage |
+
+### Operator library taxonomy
+
+The sidebar catalog is grouped by creative purpose so it can grow without
+becoming one long list. Category is discovery metadata: it does not change a
+node's serialized kind, signal type, port compatibility, or runtime domain.
+
+| Stable ID | Library label | Current nodes | Growth boundary |
+| --- | --- | --- | --- |
+| `timing` | Timing | Transport Time, Beat Clock, Oscillator | Transport, phase, rhythm, schedules, and synchronization sources |
+| `control` | Control | Constant, Math, Map Range, Smooth | Numeric/boolean/event manipulation, conversion, sequencing, and state |
+| `interaction-ai` | Interaction & AI | Pointer, XY Pad, AI Chat, Video Model | Direct human controls and model-oriented interaction |
+| `inputs` | Inputs | Audio Level, Video Input | Browser media, files, sensors, devices, and gateway ingress |
+| `generators` | Generators | Solid, Flow Field, Cells | Permission-free visual creation such as gradients, shapes, text, and noise |
+| `image-processing` | Image Processing | Transform 2D, Warp, Blur, Threshold, Trails, Color Grade | Single-stream spatial, color, filter, and temporal image work |
+| `compositing` | Compositing | Mask, Composite, Frame Switch, Blend | Multi-frame masking, layering, mixing, and routing |
+| `output` | Output | Display | Demand roots for display, recording, streaming, and gateways |
+
+The IDs and membership are already catalog-visible and share the operator
+registry with the editor, so they remain stable. New categories require an
+ordered taxonomy decision and catalog-version review. Search and accessibility
+may change presentation, but saved projects must never depend on whether a
+category is expanded, renamed, or reordered.
+
+The current library presents these groups as accessible collapsible headings
+with node counts. Inputs and Generators open initially; searching temporarily
+reveals every matching group so a collapsed category never hides a result.
 
 ### Implemented application modules
 
@@ -74,6 +127,8 @@ The app currently opens the permission-free **Signal Graph** with three signal t
 - ✅ Direct two-axis XY control with independently connectable outputs, native axis sliders, keyboard interaction, and live axis values.
 - ✅ Reusable constants, arithmetic, range mapping, and rise/fall smoothing.
 - ✅ Transform 2D with independently connectable translation, scale, and rotation.
+- ✅ Core image construction and routing with Solid, Threshold, Mask,
+  Composite, Frame Switch, and Blur.
 - ✅ Play, pause, deterministic reset, display-synced/60/30 fps monitor pacing,
   rolling FPS, and GPU-pass diagnostics.
 - ✅ Beat/bar timing and pointer position/held/press/release signals.
@@ -83,6 +138,12 @@ The app currently opens the permission-free **Signal Graph** with three signal t
 - ✅ Versioned local autosave and transactional JSON import/export.
 - ✅ Graph size, file size, resolution, pixel count, render-target, and pass budgets.
 - ✅ Cycle rejection except for state intentionally retained inside Trails.
+- ✅ Read-only operator catalog and graph inspection with stable IDs, explicit
+  port indexes, parameter-layout hints, bindings, reachability, diagnostics,
+  execution orders, per-kind execution metadata, aggregate visual-pass/target
+  costs, and reachable stateful-node IDs.
+- ✅ A reachable teaching preset and component-catalog story for every current
+  node kind.
 - ✅ Static HTTPS deployment design using private object storage and a CDN.
 
 ## Quick index: what is not built yet
@@ -94,8 +155,8 @@ aid, not a separate commitment or priority system.
 | Area | Representative unbuilt work | Complete list |
 | --- | --- | --- |
 | Control and mapping | Compare, logic, gates, triggers, envelopes, timers, sequencing, vectors, and automation | [Control, events, and timing](#control-events-and-timing) |
-| Frame sources | Solid/gradient/noise/shape/text, image and video files, screen capture, playlists, browser/network media, and custom shader sources | [Frame sources and media](#frame-sources-and-media) |
-| Image processing | Crop/resize, blur, levels, keying/mattes, composite/switch, displacement, bloom, time effects, and projection warp | [Frame processing and compositing](#frame-processing-and-compositing) |
+| Frame sources | Gradient/noise/shape/text, image and video files, screen capture, playlists, browser/network media, and custom shader sources | [Frame sources and media](#frame-sources-and-media) |
+| Image processing | Crop/resize, levels, keying, displacement, bloom, channel tools, time effects, and projection warp | [Frame processing and compositing](#frame-processing-and-compositing) |
 | Audio | Audio Device In, file playback, FFT/band/beat/pitch analysis, explicit Audio Output/Monitor, mixing, effects, and recording | [Audio analysis and processing](#audio-analysis-and-processing) |
 | Data and networking | JSON/CSV/text tools, fetch, WebSocket, MQTT, WebRTC data, OSC and lighting gateways, and record/replay | [Data, text, and networking](#data-text-and-networking-nodes) |
 | Vision and ML | Motion/blobs, face/hand/body tracking, segmentation, depth, point clouds, detection, and advanced model effects | [Computer vision, tracking, and ML](#computer-vision-tracking-and-ml) |
@@ -108,6 +169,67 @@ For practical demonstrations that exercise these ideas, jump to the
 hardware and protocol feasibility, use the
 [browser and bridge I/O matrix](#browser-and-bridge-io-matrix).
 
+### Priorities from graph-structure research
+
+Inspection of a large documented operator catalog and repeated community patch
+patterns showed that useful systems are built from recurring structural roles:
+sources, filters, analyzers, explicit converters, routers, retained-state
+boundaries, reusable public interfaces, and demand-root outputs. Repeated paths
+and missing graph roles—not raw operator count—set priority.
+
+Three filters order the work:
+
+1. **Graph leverage:** how many useful end-to-end patches become possible?
+2. **Semantic foundation:** does a type, clock, state boundary, or public
+   interface need to exist before later nodes can be honest?
+3. **Browser feasibility:** can the wave have a deterministic local fallback,
+   bounded resources, and a useful unavailable state?
+
+### Protocol-governed module waves
+
+| Wave | Status | Required scope | Required teaching examples |
+| --- | --- | --- | --- |
+| Foundation A — controls and spatial mapping | ✅ | Constant, Math, Map Range, Smooth, and Transform 2D | *Control Math*, *Smooth Pointer*, and *Transform Playground* |
+| Foundation B — compositing loop | ✅ | Solid, Threshold, Mask, Composite, Frame Switch, and Blur | *Mask & Composite Lab*, *Beat Switcher*, and *Audio Soft Focus* |
+| 1 — local media and framing | 🚧 Next | Image File, Video File, Screen Capture, Crop/Fit, Resize, and Test Card | *Image Color Lab*, *Clip Framing*, and *Screen Layout & Test*; every new node must be output-reachable across the set |
+| 2 — explicit frame state | 🚧 Next | General Frame Delay/Feedback with visible initialization, read/commit, pause, seek, and reset rules | *Feedback Laboratory* |
+| 3 — decisions and events | 🚧 Next | `control.bool`, `event.trigger`, explicit bool/control conversion, Compare, Logic, Trigger, Gate, Hold, Frame Hold, Counter, Timer, and seeded Random | *Cue Logic Basics*, *Freeze & Release*, *Beat-cut Montage*, *Timed Transition*, and *Triggered Variations* |
+| 4 — buffered audio | 🚧 Next | `audio.block`, `audio.spectrum`, Audio Device In, Audio File, Spectrum, Band Energy, Envelope Follower, Onset, and explicit Audio Output/Monitor | *Audio Patch 101*, *Spectrum Color Bands*, and *Onset Switcher* |
+| 5 — color, shape, and keying | 🧭 | Levels, Channel Shuffle, Luma/Chroma Key, Displace, Gradient, Shape, and Text | *Poster Maker*, *Keyed Camera*, and *Displacement Map Lab* |
+| 6 — reusable boundaries | 🧭 | Public Input/Output/Parameter contracts, nested Module/Subgraph, instances, presets, and scene routing | *Reusable Performance Rig* and *Scene Bank Basics* |
+| 7 — broader typed systems | 🔬 | Structured data, vision/depth, geometry/materials, and output/gateway families, introduced only after their types and clocks are inspectable | At least one permission-free or recorded-fixture tutorial per new family before live-device examples |
+
+The read-only catalog and inspection surface advance with every wave; protocol
+work is not postponed until the catalog is “finished.” Authenticated transport
+and mutation follow only after migrations, capability negotiation, atomic
+revision handling, and idempotency are proven in-process.
+
+### Definition of done for every node wave
+
+A wave is complete only when all of the following land together:
+
+- a structural design note covering typed families, explicit indexed ports,
+  disconnected-input behavior, parameter/control precedence, clock, state/reset,
+  capability needs, and representative graph patterns, informed by the
+  manual-derived graph research when useful;
+- stable serialized kind, port, parameter, select-option, and public-interface
+  IDs, with defaults, units, bounds, and a migration decision;
+- compiler/runtime implementation with demand-root scheduling, explicit
+  conversions, resource limits, deterministic fallback, and cleanup;
+- catalog and graph-inspection coverage derived from the real registry and
+  compiler, including execution/state/resource metadata as it becomes available;
+- one or more bundled teaching presets in which every new node is reachable
+  from an output and its role is named in the learning goal;
+- an operator-card story for each node, a complete-graph story for each teaching
+  preset, concise Help guidance, and capability/permission instructions;
+- serialization/migration tests, focused runtime tests, graph compile tests,
+  browser smoke coverage, and the automated all-node example coverage check.
+
+Do not mark a roadmap entry ✅ until the implementation and education pieces
+both pass this gate. See
+[Graph Protocol Strategy](GRAPH_PROTOCOL_STRATEGY.md#module-development-gate)
+for the compatibility and safe-automation contract.
+
 ## Signal types to grow toward
 
 Adding a node should start with its data contract. The renderer can change from WebGL2 to WebGPU; a stable project should not have to.
@@ -119,9 +241,9 @@ Adding a node should start with its data contract. The renderer can change from 
 | `text.utf8` | ✅ | Bounded text, currently used for prompt routing |
 | `control.bool` | 🚧 | Gates, toggles, comparisons, and device buttons |
 | `event.trigger` | 🚧 | Discrete events that must not be confused with a sustained value |
-| `control.vec2/3/4` | 🚧 | Coordinates, color, multi-axis sensors, and packed controls |
-| `audio.block` | 🧭 | Sample-rate audio buffers evaluated by an audio clock |
-| `audio.spectrum` | 🧭 | Frequency bins with sample rate, FFT size, and window metadata |
+| `control.vec2`, `control.vec3`, `control.vec4` | 🚧 | Coordinates, color, multi-axis sensors, and packed controls |
+| `audio.block` | 🚧 | Sample-rate audio buffers evaluated by an audio clock |
+| `audio.spectrum` | 🚧 | Frequency bins with sample rate, FFT size, and window metadata |
 | `data.table` | 🧭 | Rows/columns for CSV, device maps, cues, and structured transforms |
 | `data.json` | 🧭 | Bounded structured messages and API responses |
 | `frame.depth` | 🧭 | Calibrated depth texture with unit/range metadata |
@@ -145,6 +267,7 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 | P1 | ✅ Smooth / Slew | Frame-rate-independent rise/fall filtering for noisy controls |
 | P1 | 🚧 Compare | Equal, greater, less, inside range, and changed |
 | P1 | 🚧 Logic | AND, OR, XOR, NOT for boolean/event work |
+| P1 | 🚧 Bool / Control Convert | Explicit conversion between sustained boolean state and numeric modulation |
 | P1 | 🚧 Gate / Switch | Route one control from several sources |
 | P1 | 🚧 Trigger | Convert thresholds and button edges into discrete events |
 | P1 | 🚧 Hold / Latch | Retain a value until the next event |
@@ -173,7 +296,7 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 | P0 | ✅ Video Input | User-enabled camera texture for the current session |
 | P0 | ✅ Flow Field, Cells | Permission-free procedural sources |
 | P0 | ✅ Video Model | Built-in visual preview or latest bounded frame from a compatible user-run adapter |
-| P1 | 🚧 Solid | Flat color with alpha |
+| P1 | ✅ Solid | Flat RGBA color with optional control inputs for each channel |
 | P1 | 🚧 Gradient | Linear, radial, conic, and multi-stop gradients |
 | P1 | 🚧 Noise | Value, simplex-like, cellular, curl, and fractal variants |
 | P1 | 🚧 Shape | Rectangle, ellipse, line, polygon, star, and rounded forms |
@@ -200,17 +323,20 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 | --- | --- | --- |
 | P0 | ✅ Warp, Blend, Trails, Color Grade | Existing multipass processing core |
 | P1 | ✅ Transform 2D | Translate, scale, rotate, pivot, and transparent/clamp/repeat/mirror edge modes |
+| P1 | ✅ Blur | Bounded control-driven soft focus |
+| P1 | ✅ Threshold | Soft luminance or component threshold with inversion |
+| P1 | ✅ Matte / Mask | Apply a selected mask channel to source alpha |
+| P1 | ✅ Composite | Source/destination Over, source In/Out/Atop, and XOR Porter-Duff operations |
+| P1 | ✅ Frame Switch | Select one of four frame inputs with an integer index |
+| P1 | 🚧 Frame Delay / Feedback | Explicit previous-tick read/commit boundary with deterministic initialization and reset |
+| P1 | 🚧 Frame Hold | Retain or release a frame from an explicit event/control input without creating an ordinary graph cycle |
 | P1 | 🚧 Crop / Fit | Crop, letterbox, cover, contain, and safe-area guides |
 | P1 | 🚧 Resize | Explicit resolution and filtering boundary |
-| P1 | 🚧 Blur | Separable Gaussian/box blur with bounded radius |
 | P1 | 🚧 Levels | Black/white points, gamma, lift, gain, and clamp |
 | P1 | 🚧 HSV / HSL | Direct color component adjustment |
-| P1 | 🚧 Threshold | Luma/color threshold with softness |
 | P1 | 🚧 Luma Key | Generate alpha from luminance |
 | P1 | 🚧 Chroma Key | Spill-aware foreground keying |
-| P1 | 🚧 Matte / Mask | Apply, invert, multiply, and combine masks |
-| P1 | 🚧 Composite | Full Porter-Duff and artistic blend modes |
-| P1 | 🚧 Switch / Crossfade | Select or transition between N frame inputs |
+| P1 | 🚧 Crossfade / Transition | Interpolate between routed frame inputs with timed transition curves |
 | P1 | 🚧 Displace | Use another frame as an XY displacement field |
 | P1 | 🚧 Edge | Sobel-like edges for style and vision pre-processing |
 | P1 | 🚧 Pixelate | Resolution/grid quantization |
@@ -255,7 +381,7 @@ controls receive downsampled analysis values.
 | P1 | 🚧 Onset / Beat | Transient events with confidence and refractory period |
 | P1 | 🚧 Pitch | Fundamental estimate plus confidence |
 | P1 | 🚧 Waveform | Time-domain block for scope and geometry conversion |
-| P2 | 🧭 Audio Output / Monitor | Explicit speaker destination, opt-in monitoring, feedback warning, mute, and safety gain |
+| P1 | 🚧 Audio Output / Monitor | Explicit speaker destination, opt-in monitoring, feedback warning, mute, and safety gain |
 | P2 | 🧭 Gain / Pan | Audio-rate amplitude and stereo placement |
 | P2 | 🧭 Mixer | Multi-channel gain, mute, solo, and metering |
 | P2 | 🧭 Filter / EQ | Biquad filters and parametric bands |
@@ -452,7 +578,7 @@ Keep these paths distinct in product language and implementation:
 
 ## Example patch and preset library
 
-Arrows show the primary signal path. A semicolon separates modulation. Nodes not yet shipped are marked with their roadmap status. The current New patch menu ships Blank Canvas plus ten named examples below: Full Studio, Beat-Synced Color, Two-World Mixer, Control Math, Smooth Pointer, Transform Playground, Pointer Bend, Mic Pulse Trails, Camera Dream, and Prompted Visual Preview. Choosing one is an undoable, validated graph replacement; it stops device/model sessions and clears transient credentials. A future gallery should add thumbnails, learning goals, required capabilities, expected GPU cost, output aspect, and a "restore original" action.
+Arrows show the primary signal path. A semicolon separates modulation. Nodes not yet shipped are marked with their roadmap status. The current New patch menu ships Blank Canvas plus thirteen named examples below: Full Studio, Beat-Synced Color, Two-World Mixer, Control Math, Smooth Pointer, Transform Playground, Mask & Composite Lab, Beat Switcher, Audio Soft Focus, Pointer Bend, Mic Pulse Trails, Camera Dream, and Prompted Visual Preview. Choosing one is an undoable, validated graph replacement; it stops device/model sessions and clears transient credentials. A future gallery should add thumbnails, learning goals, required capabilities, expected GPU cost, output aspect, and a "restore original" action.
 
 ### Beginner: learn one idea at a time
 
@@ -482,15 +608,17 @@ Arrows show the primary signal path. A semicolon separates modulation. Nodes not
 
 5. **Camera Dream — available in New patch**
 
-   `Video Input → Warp → Trails → Color Grade → Display; Oscillator → Warp.Amount`
+   `Video Input + Flow Field → Blend → Warp → Color Grade → Display; Pointer.X → Warp.Amount; Pointer.Y → Color Grade.Hue`
 
-   Demonstrates explicit camera start, live texture upload, feedback, and mirroring.
+   Demonstrates explicit camera start, live texture upload, a procedural
+   fallback layer, mirroring, and hands-on distortion/color control.
 
 6. **Mic Pulse Trails — available in New patch**
 
-   `Flow Field → Color Grade → Display; Audio Level → Flow Field.Energy`
+   `Flow Field → Trails → Color Grade → Display; Audio Level → Flow Field.Energy, Trails.Feedback, Color Grade.Hue`
 
-   Works with a demo signal first; enable the microphone only when desired.
+   Shows one honest audio-level control driving three visible roles. It works
+   with a demo signal first; enable the microphone only when desired.
 
 7. **Two-World Mixer — available in New patch**
 
@@ -525,25 +653,46 @@ Arrows show the primary signal path. A semicolon separates modulation. Nodes not
     Provides hands-on translation, mapped automatic rotation, reusable scale,
     pivot controls, and visible edge modes in one complete graph.
 
-12. **Poster Maker — P1**
+12. **Mask & Composite Lab — available in New patch**
 
-   `Gradient 🚧 → Text 🚧 → Composite 🚧 → Color Grade → Display`
+    `Cells → Threshold → Mask.Mask; Flow Field → Mask.Source → Composite.Foreground; Solid → Composite.Background → Display`
+
+    Separates three distinct operations: making a soft matte, applying it to
+    alpha, and layering the cutout over a background.
+
+13. **Beat Switcher — available in New patch**
+
+    `Beat Clock.Bar → Map Range → Frame Switch.Index; four animated sources → Frame Switch → Display`
+
+    Divides a tempo-locked bar across four visibly different visual sources.
+    Every source and the control chain remain reachable from Display.
+
+14. **Audio Soft Focus — available in New patch**
+
+    `Audio Level → Map Range 0–18 → Blur.Radius; Flow Field → Blur → Display`
+
+    Demonstrates that audio analysis remains a control signal rather than an
+    audio frame. The deterministic demo pulse works before microphone opt-in.
+
+15. **Poster Maker — P1**
+
+   `Gradient 🚧 → Text 🚧 → Composite → Color Grade → Display`
 
    A still-first exercise suitable for screenshots.
 
-13. **Feedback Basics — available as a manual recipe**
+16. **Feedback Basics — available as a manual recipe**
 
    `Cells → Warp → Trails → Display; Oscillator → Trails.Feedback`
 
    Explains why retained state differs from a normal graph cycle.
 
-14. **Shape Rhythm — P1**
+17. **Shape Rhythm — P1**
 
    `Shape 🚧 → Transform 2D → Display; Oscillator → Map Range → Transform 2D.Rotation`
 
    Covers pivots and mapped modulation.
 
-15. **Image Remix — P1**
+18. **Image Remix — P1**
 
     `Image File 🚧 → Kaleidoscope 🚧 → Color Grade → Display`
 
@@ -565,15 +714,15 @@ Arrows show the primary signal path. A semicolon separates modulation. Nodes not
 
 4. **Four-camera Switcher — P2**
 
-   `Video Input ×4 → Switch 🚧 → Grade → Display; MIDI/Gamepad 🧭 → Switch.Index`.
+   `Video Input ×4 → Frame Switch → Grade → Display; MIDI/Gamepad 🧭 → Frame Switch.Index`.
 
 5. **Lyric Overlay — P1**
 
-   `Video/File source → Composite 🚧; Text 🚧 → Composite → Display; WebSocket 🧭 → Text.String`.
+   `Video/File source → Composite; Text 🚧 → Composite → Display; WebSocket 🧭 → Text.String`.
 
 6. **Beat-cut Montage — P1/P2**
 
-   `Playlist 🧭 → Switch 🚧 → Display; Onset 🚧 → Counter 🚧 → Switch.Index`.
+   `Playlist 🧭 → Frame Switch → Display; Onset 🚧 → Counter 🚧 → Frame Switch.Index`.
 
 7. **MIDI Performance Rack — P1/P2**
 
@@ -609,7 +758,7 @@ Arrows show the primary signal path. A semicolon separates modulation. Nodes not
 
 1. **Silhouette Garden — P1/P2**
 
-   `Video Input → Person Segmentation 🧭 → Matte 🚧; Flow Field → Composite 🚧 → Projection Output 🧭`.
+   `Video Input → Person Segmentation 🧭 → Mask; Flow Field → Composite → Projection Output 🧭`.
 
 2. **Motion History Mirror — P1/P2**
 
@@ -695,7 +844,7 @@ Every bundled example should ship with:
 - one-click restore that never overwrites the user's saved patch without confirmation;
 - automated load/compile/render smoke coverage.
 
-A useful initial gallery is 12 excellent, legible examples rather than 100 fragile patches.
+A useful initial gallery is 13 excellent, legible examples rather than 100 fragile patches.
 
 ## Architecture lessons worth preserving
 
@@ -705,8 +854,33 @@ A useful initial gallery is 12 excellent, legible examples rather than 100 fragi
 - Keep the serialized graph declarative and immutable from the renderer's perspective.
 - Keep ordinary graphs acyclic. Stateful time nodes need an explicit delay contract with separate read/update phases and deterministic reset.
 - Give every port and parameter a stable ID. Titles can change; serialized IDs cannot change casually.
+- Preserve explicit port indexes in catalog/inspection data so multi-input order
+  never depends on edge-array order or canvas position.
+- Preserve every parameter's saved literal while a compatible connected signal
+  overrides its resolved runtime value; disconnecting restores the literal.
+- Keep signal conversion explicit and inspectable instead of silently coercing
+  a type, unit, rate, or shape at connection time.
+- Treat current router reachability as structural. Add conditional branch
+  cooking only with explicit rules for selector timing, retained state,
+  capability sessions, and switch-over frames.
 - Return structured diagnostics with node/port IDs so the editor, automation clients, and tests see the same errors.
 - Define behavior for multiple Displays early: selected program, preview, named output, or explicit output routing.
+
+### Inspection and automation
+
+- Keep project-schema, operator-catalog, and protocol versions independent.
+- Derive catalog and inspection responses from the real registry and compiler;
+  do not maintain a second list of graph semantics for integrations.
+- Preserve the implemented per-kind pass/target/state metadata and aggregate
+  plan costs; expand inspection with clock dependencies, actual texture bytes
+  and resolution, capability readiness, dirty/static state, last duration, and
+  last-cook reason.
+- Add runtime capability negotiation before exposing device, network, audio,
+  model, or gateway commands.
+- Make future mutations typed, atomic, revision-checked, idempotent, and subject
+  to the same validation and budgets as UI commands.
+- Keep arbitrary command-string evaluation outside the browser automation
+  boundary. See [Graph Protocol Strategy](GRAPH_PROTOCOL_STRATEGY.md).
 
 ### Runtime boundaries
 
@@ -829,19 +1003,34 @@ The app should include a capability center listing which nodes want camera, micr
 
 ## Suggested delivery sequence
 
+The phases describe product packaging. Within a phase, the dependency order and
+acceptance criteria in [Protocol-governed module waves](#protocol-governed-module-waves)
+are authoritative.
+
 ### Phase 1 — durable browser instrument (P1)
 
-- Harden camera input and add screen/image/video-file sources.
+- Deliver Wave 1 local media and framing: image/video files, screen capture,
+  Crop/Fit, Resize, and Test Card, plus a first-class asset record.
+- Deliver Wave 2 explicit frame state: general Delay/Feedback with deterministic
+  initialization, read/commit, pause/reset/seek, and inactive-branch behavior.
+- Deliver Wave 3 typed decisions and events: `control.bool`, `event.trigger`,
+  explicit converters, Compare, Logic, Trigger, Gate, Hold, Frame Hold, Counter,
+  Timer, and seeded Random.
+- Deliver Wave 4 buffered audio on an audio clock: device/file input, spectrum,
+  band/onset analysis, and explicit opt-in Audio Output/Monitor.
+- Deliver Wave 5 color, shape, and keying essentials after their prerequisite
+  source/framing and event paths exist.
 - Harden the current model adapter contract with conformance fixtures, cancellation, capability negotiation, and explicit source-upload semantics.
-- Add Compare, Trigger, Vector, Gate, Envelope, and sequencing controls.
-- Add Crop/Fit, Resize, Blur, Levels, Key/Mask, Composite, Switch, and Displace.
-- Add spectrum/band/onset analysis while keeping sample-rate work out of the visual frame loop.
-- Add grouping, named parameters, presets, macro controls, asset bin, and a preset gallery.
-- Add snapshot/recording, capability center, improved diagnostics, and adaptive-resolution experiments.
+- Add grouping, named parameters, presets, macro controls, the teaching-preset
+  gallery, snapshot/recording, capability center, improved diagnostics, and
+  adaptive-resolution experiments.
+- Extend the read-only catalog and inspection contract in every wave; add
+  migrations before any incompatible schema change.
 
 ### Phase 2 — performance and installations (P2)
 
-- Add reusable modules, scene banks, cue stack, preview/program, and preflight.
+- Deliver Wave 6 reusable public boundaries, then scene banks, cue stack,
+  preview/program, and preflight.
 - Add MIDI/gamepad/device mapping and browser-friendly WebSocket/WebRTC I/O.
 - Add CV landmarks/segmentation/zones and first GPU particle/3D render pipeline.
 - Add projection warp, multi-output concepts, LED pixel map, and a paired gateway protocol.
@@ -922,6 +1111,7 @@ These references define the capabilities and constraints behind the I/O plan:
 - Which first gateway platform and protocols unlock the most installations.
 - Whether modules can contain device permissions or must receive devices through explicit outer ports.
 - How custom shaders and third-party nodes earn trust.
-- Which 12 example patches best teach the system and look compelling on first launch.
+- Which next examples best expand the current 13-patch teaching set without
+  sacrificing clarity or coverage.
 
 This document should stay honest: move a line to ✅ only when it is usable, cleaned up, tested, and documented in the shipping app.

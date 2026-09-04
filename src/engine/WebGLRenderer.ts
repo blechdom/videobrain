@@ -5,6 +5,7 @@ import {
   MAX_RENDER_PIXELS,
   MAX_RENDER_RESOURCE_PIXELS,
   compileGraph,
+  getOperatorExecution,
   type CompiledGraph,
   type CompiledNode,
   type GraphDocument,
@@ -188,6 +189,42 @@ function transformEdgeModeIndex(mode: string): number {
   }
 }
 
+function channelIndex(channel: string): number {
+  switch (channel) {
+    case 'luminance':
+      return 0;
+    case 'red':
+      return 1;
+    case 'green':
+      return 2;
+    case 'blue':
+      return 3;
+    case 'alpha':
+      return 4;
+    default:
+      return 0;
+  }
+}
+
+function compositeOperationIndex(operation: string): number {
+  switch (operation) {
+    case 'sourceOver':
+      return 0;
+    case 'destinationOver':
+      return 1;
+    case 'sourceIn':
+      return 2;
+    case 'sourceOut':
+      return 3;
+    case 'sourceAtop':
+      return 4;
+    case 'xor':
+      return 5;
+    default:
+      return 0;
+  }
+}
+
 interface VideoFrameSource {
   readonly readyState: number;
   readonly videoWidth: number;
@@ -260,6 +297,7 @@ export class WebGLRenderer {
   private smoothControlStates = new Map<string, SmoothControlState>();
   private vertexArray: WebGLVertexArrayObject | null = null;
   private blackTexture: WebGLTexture | null = null;
+  private transparentTexture: WebGLTexture | null = null;
   private videoTexture: WebGLTexture | null = null;
   private videoSource: HTMLVideoElement | null = null;
   private videoSourceWidth = 1;
@@ -528,7 +566,7 @@ export class WebGLRenderer {
         this.plan.displayNodes.find((node) => node.inputs.source !== undefined) ??
         this.plan.displayNodes[0];
       this.renderDisplayNode(displayNode);
-      this.lastPassCount = this.plan.frameNodes.length + 1;
+      this.lastPassCount = this.plan.visualPasses;
       this.errorState = null;
       this.frameCount += 1;
       if (presentationTimestamp !== undefined) {
@@ -590,6 +628,9 @@ export class WebGLRenderer {
       if (this.blackTexture) {
         this.gl.deleteTexture(this.blackTexture);
       }
+      if (this.transparentTexture) {
+        this.gl.deleteTexture(this.transparentTexture);
+      }
       if (this.videoTexture) {
         this.gl.deleteTexture(this.videoTexture);
       }
@@ -602,6 +643,7 @@ export class WebGLRenderer {
     this.controlValues.clear();
     this.smoothControlStates.clear();
     this.blackTexture = null;
+    this.transparentTexture = null;
     this.videoTexture = null;
     this.videoSource = null;
     this.videoSourceWidth = 1;
@@ -626,6 +668,7 @@ export class WebGLRenderer {
     this.smoothControlStates.clear();
     this.programs.clear();
     this.blackTexture = null;
+    this.transparentTexture = null;
     this.videoTexture = null;
     this.videoModelTextures.clear();
     this.videoSourceWidth = 1;
@@ -655,13 +698,17 @@ export class WebGLRenderer {
     gl.disable(gl.BLEND);
     const vertexArray = gl.createVertexArray();
     const blackTexture = gl.createTexture();
+    const transparentTexture = gl.createTexture();
     const videoTexture = gl.createTexture();
-    if (!vertexArray || !blackTexture || !videoTexture) {
+    if (!vertexArray || !blackTexture || !transparentTexture || !videoTexture) {
       if (vertexArray) {
         gl.deleteVertexArray(vertexArray);
       }
       if (blackTexture) {
         gl.deleteTexture(blackTexture);
+      }
+      if (transparentTexture) {
+        gl.deleteTexture(transparentTexture);
       }
       if (videoTexture) {
         gl.deleteTexture(videoTexture);
@@ -670,8 +717,19 @@ export class WebGLRenderer {
     }
     this.vertexArray = vertexArray;
     this.blackTexture = blackTexture;
+    this.transparentTexture = transparentTexture;
     this.videoTexture = videoTexture;
-    gl.bindTexture(gl.TEXTURE_2D, blackTexture);
+    this.initializeSinglePixelTexture(blackTexture, [0, 0, 0, 255]);
+    this.initializeSinglePixelTexture(transparentTexture, [0, 0, 0, 0]);
+    this.resetVideoTexture();
+  }
+
+  private initializeSinglePixelTexture(
+    texture: WebGLTexture,
+    rgba: readonly [number, number, number, number],
+  ): void {
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -685,10 +743,9 @@ export class WebGLRenderer {
       0,
       gl.RGBA,
       gl.UNSIGNED_BYTE,
-      new Uint8Array([0, 0, 0, 255]),
+      new Uint8Array(rgba),
     );
     gl.bindTexture(gl.TEXTURE_2D, null);
-    this.resetVideoTexture();
   }
 
   private resetVideoTexture(): void {
@@ -902,7 +959,8 @@ export class WebGLRenderer {
     },
   ): void {
     const targetCount = graph.frameNodes.reduce(
-      (count, { node }) => count + (node.kind === 'trails' ? 2 : 1),
+      (count, { node }) =>
+        count + getOperatorExecution(node.kind).renderTargets,
       0,
     );
     if (targetCount > MAX_GPU_RENDER_TARGETS) {
@@ -948,7 +1006,7 @@ export class WebGLRenderer {
     try {
       for (const compiledNode of this.plan.frameNodes) {
         const node = compiledNode.node;
-        const targetCount = node.kind === 'trails' ? 2 : 1;
+        const targetCount = getOperatorExecution(node.kind).renderTargets;
         const existing = previous.get(node.id);
         const canReuse =
           existing?.kind === node.kind &&
@@ -1352,6 +1410,48 @@ export class WebGLRenderer {
         this.uniform1f(program, 'uSeed', this.numberParam(compiledNode, 'seed'));
         break;
       }
+      case 'solid':
+        this.uniform4f(
+          program,
+          'uColor',
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'red',
+              this.numberParam(compiledNode, 'red'),
+            ),
+            0,
+            1,
+          ),
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'green',
+              this.numberParam(compiledNode, 'green'),
+            ),
+            0,
+            1,
+          ),
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'blue',
+              this.numberParam(compiledNode, 'blue'),
+            ),
+            0,
+            1,
+          ),
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'alpha',
+              this.numberParam(compiledNode, 'alpha'),
+            ),
+            0,
+            1,
+          ),
+        );
+        break;
       case 'plasma': {
         const phase = this.controlInput(compiledNode, 'time', time);
         const speed = this.numberParam(compiledNode, 'speed');
@@ -1487,6 +1587,183 @@ export class WebGLRenderer {
           program,
           'uTime',
           time * this.numberParam(compiledNode, 'speed'),
+        );
+        break;
+      case 'blur':
+        this.bindTexture(
+          program,
+          'uSource',
+          this.frameInput(compiledNode, 'source'),
+          0,
+        );
+        this.uniform1f(
+          program,
+          'uRadius',
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'radius',
+              this.numberParam(compiledNode, 'radius'),
+            ),
+            0,
+            24,
+          ),
+        );
+        break;
+      case 'threshold':
+        this.bindTexture(
+          program,
+          'uSource',
+          this.frameInput(compiledNode, 'source'),
+          0,
+        );
+        this.uniform1f(
+          program,
+          'uChannel',
+          channelIndex(this.stringParam(compiledNode, 'channel')),
+        );
+        this.uniform1f(
+          program,
+          'uLevel',
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'level',
+              this.numberParam(compiledNode, 'level'),
+            ),
+            0,
+            1,
+          ),
+        );
+        this.uniform1f(
+          program,
+          'uSoftness',
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'softness',
+              this.numberParam(compiledNode, 'softness'),
+            ),
+            0,
+            0.5,
+          ),
+        );
+        this.uniform1f(
+          program,
+          'uInvert',
+          this.stringParam(compiledNode, 'invert') === 'on' ? 1 : 0,
+        );
+        break;
+      case 'mask':
+        this.bindTexture(
+          program,
+          'uSource',
+          this.frameInput(compiledNode, 'source'),
+          0,
+        );
+        this.bindTexture(
+          program,
+          'uMask',
+          this.frameInput(compiledNode, 'mask'),
+          1,
+        );
+        this.uniform1f(
+          program,
+          'uChannel',
+          channelIndex(this.stringParam(compiledNode, 'channel')),
+        );
+        this.uniform1f(
+          program,
+          'uAmount',
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'amount',
+              this.numberParam(compiledNode, 'amount'),
+            ),
+            0,
+            1,
+          ),
+        );
+        this.uniform1f(
+          program,
+          'uInvert',
+          this.stringParam(compiledNode, 'invert') === 'on' ? 1 : 0,
+        );
+        break;
+      case 'composite':
+        this.bindTexture(
+          program,
+          'uBackground',
+          this.frameInput(compiledNode, 'background'),
+          0,
+        );
+        this.bindTexture(
+          program,
+          'uForeground',
+          this.frameInput(compiledNode, 'foreground'),
+          1,
+        );
+        this.uniform1f(
+          program,
+          'uOpacity',
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'opacity',
+              this.numberParam(compiledNode, 'opacity'),
+            ),
+            0,
+            1,
+          ),
+        );
+        this.uniform1f(
+          program,
+          'uOperation',
+          compositeOperationIndex(
+            this.stringParam(compiledNode, 'operation'),
+          ),
+        );
+        break;
+      case 'frameSwitch':
+        this.bindTexture(
+          program,
+          'uA',
+          this.frameInput(compiledNode, 'a', true),
+          0,
+        );
+        this.bindTexture(
+          program,
+          'uB',
+          this.frameInput(compiledNode, 'b', true),
+          1,
+        );
+        this.bindTexture(
+          program,
+          'uC',
+          this.frameInput(compiledNode, 'c', true),
+          2,
+        );
+        this.bindTexture(
+          program,
+          'uD',
+          this.frameInput(compiledNode, 'd', true),
+          3,
+        );
+        this.uniform1f(
+          program,
+          'uIndex',
+          Math.round(
+            clamp(
+              this.controlInput(
+                compiledNode,
+                'index',
+                this.numberParam(compiledNode, 'index'),
+              ),
+              0,
+              3,
+            ),
+          ),
         );
         break;
       case 'blend':
@@ -1708,6 +1985,20 @@ export class WebGLRenderer {
     }
   }
 
+  private uniform4f(
+    program: ProgramInfo,
+    name: string,
+    x: number,
+    y: number,
+    z: number,
+    w: number,
+  ): void {
+    const location = this.uniformLocation(program, name);
+    if (location) {
+      this.gl.uniform4f(location, x, y, z, w);
+    }
+  }
+
   private bindTexture(
     program: ProgramInfo,
     name: string,
@@ -1722,7 +2013,11 @@ export class WebGLRenderer {
     }
   }
 
-  private frameInput(compiledNode: CompiledNode, inputId: string): WebGLTexture {
+  private frameInput(
+    compiledNode: CompiledNode,
+    inputId: string,
+    transparentFallback = false,
+  ): WebGLTexture {
     const binding = compiledNode.inputs[inputId];
     const texture = binding
       ? this.outputTextures.get(binding.sourceNodeId)
@@ -1730,7 +2025,9 @@ export class WebGLRenderer {
     if (texture) {
       return texture;
     }
-    return this.fallbackTexture();
+    return transparentFallback
+      ? this.transparentFallbackTexture()
+      : this.fallbackTexture();
   }
 
   private fallbackTexture(): WebGLTexture {
@@ -1738,6 +2035,13 @@ export class WebGLRenderer {
       throw new RendererError('The fallback texture is unavailable.');
     }
     return this.blackTexture;
+  }
+
+  private transparentFallbackTexture(): WebGLTexture {
+    if (!this.transparentTexture) {
+      throw new RendererError('The transparent fallback texture is unavailable.');
+    }
+    return this.transparentTexture;
   }
 
   private controlInput(

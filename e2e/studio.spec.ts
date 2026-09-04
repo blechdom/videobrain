@@ -137,7 +137,7 @@ test('starts blank and example graphs from the New patch menu', async ({
   await trigger.click();
   const menu = page.getByRole('menu', { name: 'New patch starters' });
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('menuitem')).toHaveCount(11);
+  await expect(menu.getByRole('menuitem')).toHaveCount(14);
   await expect(
     menu.getByRole('menuitem', { name: /Blank Canvas/ }),
   ).toBeFocused();
@@ -152,6 +152,15 @@ test('starts blank and example graphs from the New patch menu', async ({
   ).toBeVisible();
   await expect(
     menu.getByRole('menuitem', { name: /Transform Playground/ }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: /Mask & Composite Lab/ }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: /Beat Switcher/ }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: /Audio Soft Focus/ }),
   ).toBeVisible();
   await expect(
     menu.getByRole('menuitem', { name: /Camera Dream/ }),
@@ -235,7 +244,7 @@ test('starts blank and example graphs from the New patch menu', async ({
   ).toBeLessThanOrEqual(390);
 });
 
-test('runs every foundation node inside a visible starter graph', async ({
+test('runs every teaching node inside a visible starter graph', async ({
   page,
 }) => {
   const trigger = page.getByRole('button', { name: 'New patch' });
@@ -297,6 +306,47 @@ test('runs every foundation node inside a visible starter graph', async ({
     page
       .locator('article[aria-label="XY Pad node"]')
       .getByRole('button', { name: 'XY Pad Position' }),
+  ).toBeVisible();
+
+  await loadStarter('Mask & Composite Lab');
+  await expect(
+    page
+      .locator('article[aria-label="Solid Color node"]')
+      .getByRole('slider', { name: 'Solid Color Red' }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator('article[aria-label="Threshold node"]')
+      .getByRole('slider', { name: 'Threshold Level' }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator('article[aria-label="Mask node"]')
+      .getByRole('slider', { name: 'Mask Amount' }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator('article[aria-label="Composite node"]')
+      .getByRole('slider', { name: 'Composite Opacity' }),
+  ).toBeVisible();
+
+  await loadStarter('Beat Switcher');
+  await expect(
+    page
+      .locator('article[aria-label="Frame Switch node"]')
+      .getByRole('slider', { name: 'Frame Switch Index' }),
+  ).toBeVisible();
+
+  await loadStarter('Audio Soft Focus');
+  await expect(
+    page
+      .locator('article[aria-label="Blur node"]')
+      .getByRole('slider', { name: 'Blur Radius (px)' }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator('article[aria-label="Audio Level node"]')
+      .getByRole('button', { name: 'Start mic' }),
   ).toBeVisible();
 });
 

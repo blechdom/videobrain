@@ -17,7 +17,7 @@ const plannedAreas = [
   {
     title: 'Media and compositing',
     items:
-      'Image/video files, screen capture, shapes, text, blur, keying, masks, richer compositing, switching, and displacement',
+      'Image/video files, screen capture, shapes, text, color keying, displacement, transitions, and deeper image analysis',
   },
   {
     title: 'Audio',
@@ -82,14 +82,29 @@ const recipes = [
     note: 'Open Transform Playground to move the frame, watch mapped rotation, and change its Constant-driven scale.',
   },
   {
+    title: 'Mask and composite fundamentals',
+    path: 'Cells → Threshold → Mask; Flow Field → Mask → Composite; Solid → Composite → Display',
+    note: 'Open Mask & Composite Lab. Threshold makes a soft black-and-white matte, Mask applies it as alpha, and Composite layers that foreground over a Solid color.',
+  },
+  {
+    title: 'Tempo-locked source switching',
+    path: 'Beat Clock Bar → Map Range → Frame Switch Index; four frames → Frame Switch → Display',
+    note: 'Open Beat Switcher. Each quarter of the bar selects one source; move Index manually after disconnecting its control wire.',
+  },
+  {
+    title: 'Audio-controlled soft focus',
+    path: 'Audio Level → Map Range → Blur Radius; Flow Field → Blur → Display',
+    note: 'Open Audio Soft Focus. The demo pulse works immediately; Start mic replaces it with analyzed input energy without playing any sound.',
+  },
+  {
     title: 'Audio-reactive trails',
-    path: 'Audio Level → Trails Feedback; visual source → Trails → Display',
-    note: 'Start the microphone inside Audio Level. It emits a 0–1 loudness control; it does not play or pass through sound.',
+    path: 'Flow Field → Trails → Color Grade → Display; Audio Level → Energy, Feedback, and Hue',
+    note: 'Open Mic Pulse Trails, then start the microphone inside Audio Level. It emits a 0–1 loudness control; it does not play or pass through sound.',
   },
   {
     title: 'Live camera dream',
-    path: 'Video Input → Warp → Color Grade → Display',
-    note: 'Select Video Input, start the camera, then explore fit and mirror modes.',
+    path: 'Video Input + Flow Field → Blend → Warp → Color Grade → Display; Pointer X/Y → Warp/Hue',
+    note: 'Open Camera Dream, start Video Input, then explore fit, mirror, pointer distortion, and color. The Flow Field keeps the patch visible before camera opt-in.',
   },
   {
     title: 'Model connector preview',
@@ -286,6 +301,18 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
                 </p>
               </article>
             </div>
+            <p>
+              A parameter is a saved literal value. A compatible wire can drive
+              that parameter at runtime; while connected, the incoming signal
+              replaces the inline value without erasing it. Disconnect the wire
+              to return to the saved setting.
+            </p>
+            <p className="help-note">
+              Display is an output root. The runtime follows its input wires
+              backward, orders only those dependencies, and leaves disconnected
+              branches inactive. Keep every branch you want to run connected to
+              an output path.
+            </p>
           </section>
 
           <section id="help-nodes" className="help-section">
@@ -312,7 +339,7 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
           </section>
 
           <section id="help-recipes" className="help-section">
-            <h2>Ten patches to try</h2>
+            <h2>Thirteen patches to try</h2>
             <div className="help-recipe-list">
               {recipes.map((recipe) => (
                 <article key={recipe.title}>
@@ -391,6 +418,7 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
               <li><strong>Warp · Amount</strong> — quiet to strong distortion.</li>
               <li><strong>Blend · Mix</strong> — move from input A toward input B.</li>
               <li><strong>Trails · Feedback</strong> — short to long image persistence.</li>
+              <li><strong>Blur · Radius</strong> — sharp to soft focus, measured in pixels.</li>
               <li><strong>Color Grade · Hue / Exposure / Saturation</strong> — animate the currently connectable color inputs.</li>
             </ul>
             <p>

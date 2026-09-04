@@ -9,6 +9,8 @@ The proof of concept opens into a working composition and runs locally without a
 - Typed `control.f32`, `text.utf8`, and `frame.rgba` connections
 - Demand-rooted graph compilation with cycle rejection
 - Procedural GPU sources, warp, blend, trails, color grading, and display
+- Solid color, soft thresholding, alpha masks, Porter-Duff compositing,
+  four-input frame switching, and control-driven blur
 - Transport/beat clocks, oscillator, pointer position/held/press/release,
   editable XY pad, and opt-in microphone controls
 - Reusable Constant, Math, Map Range, and Smooth control building blocks
@@ -19,7 +21,8 @@ The proof of concept opens into a working composition and runs locally without a
 - Live WebGL2 output with play, pause, reset, fullscreen, and selectable
   display-synced/60/30 fps monitor pacing
 - Node creation, connection, deletion, movement, and parameter editing
-- A New patch menu with Blank Canvas and ten complete starter graphs
+- Searchable, collapsible node categories backed by the operator registry
+- A New patch menu with Blank Canvas and thirteen complete starter graphs
 - Always-visible inline sliders, selects, and XY controls synchronized with the inspector
 - Undo and redo for project edits
 - Versioned local autosave plus JSON import and export
@@ -90,21 +93,24 @@ neither device permission nor a server connection.
 
 Use **New patch** to start from Blank Canvas, Full Studio, Beat-Synced
 Color, Two-World Mixer, Control Math, Smooth Pointer, Transform Playground,
-Pointer Bend, Mic Pulse Trails, Camera Dream, or Prompted Visual Preview. The
-graph replacement is undoable, but it stops active camera and microphone
-sessions, closes model connections, and clears session-only model keys.
-Device-based starters remain in fallback mode until access is explicitly
-enabled again.
+Mask & Composite Lab, Beat Switcher, Audio Soft Focus, Pointer Bend, Mic Pulse
+Trails, Camera Dream, or Prompted Visual Preview. The graph replacement is
+undoable, but it stops active camera and microphone sessions, closes model
+connections, and clears session-only model keys. Device-based starters remain
+in fallback mode until access is explicitly enabled again.
 
-### Foundation-node examples
+### Teaching examples
 
 | Starter | Nodes it teaches | Visible result |
 | --- | --- | --- |
 | Control Math | Constant, Math, Map Range | A scaled oscillator is remapped to crossfade two visual sources. |
 | Smooth Pointer | Map Range, Smooth, Transform 2D | Pointer X becomes centered translation with separate rise and fall response. |
 | Transform Playground | Constant, Map Range, Transform 2D | XY position, automatic rotation, scale, pivot, and edge behavior remain immediately editable. |
+| Mask & Composite Lab | Solid, Threshold, Mask, Composite | An animated matte cuts out a frame before it is layered over a flat background. |
+| Beat Switcher | Frame Switch | Bar phase selects four visibly different frame sources in tempo. |
+| Audio Soft Focus | Blur | Demo or microphone energy is mapped to a 0–18 pixel blur radius. |
 
-Every foundation node in this set is connected to a reachable graph branch that
+Every teaching node in this set is connected to a reachable graph branch that
 ends at Display; none of these starters contains a disconnected demonstration.
 
 Local/API model modes connect only to endpoints implementing the
@@ -150,7 +156,7 @@ infra/           CloudFormation for the production static site
 scripts/         Infrastructure bootstrap and manual deployment helpers
 ```
 
-The editor never owns GPU resources, and the renderer never mutates the project. See [the architecture](docs/ARCHITECTURE.md), [the MVP decision](docs/MVP.md), the [model connector protocol](docs/MODEL_CONNECTORS.md), and the comprehensive [future-development catalog](docs/FUTURE_DEVELOPMENT.md) for the reasoning, node roadmap, I/O options, adapter boundary, and example patches.
+The editor never owns GPU resources, and the renderer never mutates the project. See [the architecture](docs/ARCHITECTURE.md), [the graph protocol strategy](docs/GRAPH_PROTOCOL_STRATEGY.md), [the MVP decision](docs/MVP.md), the [model connector protocol](docs/MODEL_CONNECTORS.md), and the comprehensive [future-development catalog](docs/FUTURE_DEVELOPMENT.md) for the reasoning, compatibility rules, node roadmap, I/O options, adapter boundary, and example patches.
 
 Use the question-mark button in the app for a quick start, signal concepts, current nodes, starter recipes, device guidance, and direct contribution links.
 

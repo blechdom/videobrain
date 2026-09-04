@@ -6,7 +6,7 @@ import {
   MAX_GRAPH_NODES,
   MAX_REACHABLE_FRAME_NODES,
 } from './limits';
-import { getOperatorDefinition } from './operators';
+import { getOperatorDefinition, getOperatorExecution } from './operators';
 import type {
   GraphDocument,
   GraphEdge,
@@ -59,6 +59,8 @@ export interface CompiledGraph {
   frameNodes: readonly CompiledNode[];
   displayNodes: readonly CompiledNode[];
   reachableNodeIds: ReadonlySet<string>;
+  visualPasses: number;
+  renderTargets: number;
 }
 
 export interface ConnectionValidation {
@@ -384,7 +386,16 @@ export function compileGraph(document: GraphDocument): CompiledGraph {
   const displayNodes = orderedNodes.filter(
     ({ definition }) => definition.domain === 'display',
   );
-  const passCount = frameNodes.length + (displayNodes.length > 0 ? 1 : 0);
+  const passCount =
+    frameNodes.reduce(
+      (count, { node }) =>
+        count + getOperatorExecution(node.kind).visualPasses,
+      0,
+    ) +
+    (displayNodes.length > 0
+      ? getOperatorExecution(displayNodes[0]?.node.kind ?? 'display')
+          .visualPasses
+      : 0);
   if (
     frameNodes.length > MAX_REACHABLE_FRAME_NODES ||
     passCount > MAX_GPU_RENDER_PASSES
@@ -397,7 +408,8 @@ export function compileGraph(document: GraphDocument): CompiledGraph {
     ]);
   }
   const renderTargetCount = frameNodes.reduce(
-    (count, { node }) => count + (node.kind === 'trails' ? 2 : 1),
+    (count, { node }) =>
+      count + getOperatorExecution(node.kind).renderTargets,
     0,
   );
   if (renderTargetCount > MAX_GPU_RENDER_TARGETS) {
@@ -418,6 +430,8 @@ export function compileGraph(document: GraphDocument): CompiledGraph {
     frameNodes,
     displayNodes,
     reachableNodeIds,
+    visualPasses: passCount,
+    renderTargets: renderTargetCount,
   };
 }
 

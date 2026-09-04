@@ -63,7 +63,7 @@ The built-in **Signal Graph** is attractive without media permissions or network
 - Infinite graph canvas with pan and zoom.
 - Select, move, connect, disconnect, create, duplicate, and delete.
 - Searchable node palette.
-- Accessible New patch menu with Blank Canvas and ten validated starter graphs.
+- Accessible New patch menu with Blank Canvas and thirteen validated starter graphs.
 - Custom node cards with category, name, typed ports, reachability state, and always-visible parameter controls.
 - Inspector with parameter sliders and operator details.
 - Distinct visual treatment for `frame.rgba`, `control.f32`, and `text.utf8` connections.
@@ -74,12 +74,11 @@ The built-in **Signal Graph** is attractive without media permissions or network
 
 - Video Input with explicit opt-in camera access from its node or Inspector, facing preference, fit, and mirror controls. Adding or wiring the node never starts the device.
 - Video Model with a built-in procedural visual preview and compatible WebSocket/HTTP adapter modes.
-- Flow Field and Cells procedural producers.
-- Warp and two-input Blend processors.
+- Solid Color, Flow Field, and Cells frame producers.
+- Warp, Blur, Threshold, Transform 2D, and Color Grade single-frame processors.
+- Mask, two-input Blend, Porter-Duff Composite, and four-input Frame Switch
+  compositing/routing processors.
 - Trails with internally managed previous-frame state.
-- Color Grade.
-- Transform 2D with control inputs for translation, scale, and rotation plus
-  editable pivot and edge behavior.
 - Display output.
 
 ### Implemented control nodes
@@ -109,7 +108,8 @@ See [Model Connectors](MODEL_CONNECTORS.md) for the current wire contract and ad
 
 ### Deferred node breadth
 
-- Solid color, uploaded image, blur, crop, and key/mask processors.
+- Uploaded image/video, screen capture, crop/fit, resize, levels, channel
+  shuffle, luma/chroma key, displacement, shape, gradient, and text processors.
 - Compare, trigger, vector, envelope, and sample-and-hold controls.
 - A general-purpose Delay node beyond the retained state inside Trails.
 - Audio Device In, file playback, FFT/band analysis, and an explicit feedback-safe Audio Output/Monitor path.
@@ -180,6 +180,8 @@ The POC is complete when all of the following are demonstrable in a production b
 - Every nonblank starter compiles to a Display path, while Blank Canvas is truly empty.
 - Constant, Math, Map Range, Smooth, and Transform 2D each appear in at least
   one bundled starter where the node is reachable from Display.
+- Solid Color, Threshold, Mask, Composite, Frame Switch, and Blur each appear
+  in a bundled teaching starter where the node is reachable from Display.
 - Adding, removing, and rewiring supported nodes changes the output correctly.
 - At least one periodic control visibly modulates a transform parameter.
 - Beat Clock phase drives a downstream oscillator, and Pointer exposes position, held, press, and release values.

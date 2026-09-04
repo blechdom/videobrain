@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   NODE_KINDS,
+  OPERATOR_CATEGORY_IDS,
   OPERATOR_DEFINITIONS,
   OPERATOR_REGISTRY,
   getDefaultParams,
+  getOperatorExecution,
 } from './index';
 
 describe('operator registry', () => {
@@ -12,6 +14,15 @@ describe('operator registry', () => {
     expect(Object.keys(OPERATOR_REGISTRY).sort()).toEqual(
       [...NODE_KINDS].sort(),
     );
+  });
+
+  it('assigns every operator to a known, represented library category', () => {
+    expect(
+      [...new Set(OPERATOR_DEFINITIONS.map(({ category }) => category))].sort(),
+    ).toEqual([...OPERATOR_CATEGORY_IDS].sort());
+    for (const definition of OPERATOR_DEFINITIONS) {
+      expect(OPERATOR_CATEGORY_IDS).toContain(definition.category);
+    }
   });
 
   it('uses unique input and output IDs within every definition', () => {
@@ -51,6 +62,39 @@ describe('operator registry', () => {
         }
       }
     }
+  });
+
+  it('derives execution cost by domain and preserves explicit overrides', () => {
+    expect(getOperatorExecution('constant')).toEqual({
+      visualPasses: 0,
+      renderTargets: 0,
+      stateful: false,
+    });
+    expect(getOperatorExecution('solid')).toEqual({
+      visualPasses: 1,
+      renderTargets: 1,
+      stateful: false,
+    });
+    expect(getOperatorExecution('display')).toEqual({
+      visualPasses: 1,
+      renderTargets: 0,
+      stateful: false,
+    });
+    expect(getOperatorExecution('smooth')).toEqual({
+      visualPasses: 0,
+      renderTargets: 0,
+      stateful: true,
+    });
+    expect(OPERATOR_REGISTRY.blur.execution).toEqual({
+      visualPasses: 1,
+      renderTargets: 1,
+      stateful: false,
+    });
+    expect(getOperatorExecution('trails')).toEqual({
+      visualPasses: 1,
+      renderTargets: 2,
+      stateful: true,
+    });
   });
 
   it('keeps all public signals within the three exact port types', () => {
@@ -262,6 +306,95 @@ describe('operator registry', () => {
         { value: 'mirror', label: 'Mirror' },
       ],
     });
+  });
+
+  it('defines additive frame generators and compositing contracts', () => {
+    expect(OPERATOR_REGISTRY.solid.inputs).toEqual([
+      { id: 'red', label: 'Red', type: 'control.f32', optional: true },
+      { id: 'green', label: 'Green', type: 'control.f32', optional: true },
+      { id: 'blue', label: 'Blue', type: 'control.f32', optional: true },
+      { id: 'alpha', label: 'Alpha', type: 'control.f32', optional: true },
+    ]);
+    expect(getDefaultParams('solid')).toEqual({
+      red: 0.08,
+      green: 0.18,
+      blue: 0.42,
+      alpha: 1,
+    });
+
+    expect(OPERATOR_REGISTRY.blur.inputs).toEqual([
+      { id: 'source', label: 'Source', type: 'frame.rgba', optional: false },
+      { id: 'radius', label: 'Radius', type: 'control.f32', optional: true },
+    ]);
+    expect(getDefaultParams('blur')).toEqual({ radius: 8 });
+
+    expect(OPERATOR_REGISTRY.threshold.inputs).toEqual([
+      { id: 'source', label: 'Source', type: 'frame.rgba', optional: false },
+      { id: 'level', label: 'Level', type: 'control.f32', optional: true },
+      {
+        id: 'softness',
+        label: 'Softness',
+        type: 'control.f32',
+        optional: true,
+      },
+    ]);
+    expect(getDefaultParams('threshold')).toEqual({
+      channel: 'luminance',
+      level: 0.5,
+      softness: 0.05,
+      invert: 'off',
+    });
+
+    expect(OPERATOR_REGISTRY.mask.inputs).toEqual([
+      { id: 'source', label: 'Source', type: 'frame.rgba', optional: false },
+      { id: 'mask', label: 'Mask', type: 'frame.rgba', optional: false },
+      { id: 'amount', label: 'Amount', type: 'control.f32', optional: true },
+    ]);
+    expect(getDefaultParams('mask')).toEqual({
+      channel: 'luminance',
+      amount: 1,
+      invert: 'off',
+    });
+
+    expect(OPERATOR_REGISTRY.composite.inputs).toEqual([
+      {
+        id: 'background',
+        label: 'Background',
+        type: 'frame.rgba',
+        optional: false,
+      },
+      {
+        id: 'foreground',
+        label: 'Foreground',
+        type: 'frame.rgba',
+        optional: false,
+      },
+      { id: 'opacity', label: 'Opacity', type: 'control.f32', optional: true },
+    ]);
+    expect(getDefaultParams('composite')).toEqual({
+      operation: 'sourceOver',
+      opacity: 1,
+    });
+    expect(OPERATOR_REGISTRY.composite.params.operation).toMatchObject({
+      type: 'select',
+      options: [
+        { value: 'sourceOver', label: 'Source Over' },
+        { value: 'destinationOver', label: 'Destination Over' },
+        { value: 'sourceIn', label: 'Source In' },
+        { value: 'sourceOut', label: 'Source Out' },
+        { value: 'sourceAtop', label: 'Source Atop' },
+        { value: 'xor', label: 'XOR' },
+      ],
+    });
+
+    expect(OPERATOR_REGISTRY.frameSwitch.inputs).toEqual([
+      { id: 'a', label: 'A', type: 'frame.rgba', optional: false },
+      { id: 'b', label: 'B', type: 'frame.rgba', optional: true },
+      { id: 'c', label: 'C', type: 'frame.rgba', optional: true },
+      { id: 'd', label: 'D', type: 'frame.rgba', optional: true },
+      { id: 'index', label: 'Index', type: 'control.f32', optional: true },
+    ]);
+    expect(getDefaultParams('frameSwitch')).toEqual({ index: 0 });
   });
 
   it('defines the XY pad as two normalized editable control outputs', () => {

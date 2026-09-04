@@ -2,6 +2,7 @@ import type {
   GraphParamValue,
   NodeKind,
   OperatorDefinition,
+  OperatorExecution,
   OperatorParamDefinition,
   PortDefinition,
   PortType,
@@ -40,8 +41,13 @@ const selectParam = (
   options: options.map((value) => ({
     value,
     label:
-      ({ api: 'API', http: 'HTTP', websocket: 'WebSocket' })[value] ??
-      value.charAt(0).toUpperCase() + value.slice(1),
+      ({ api: 'API', http: 'HTTP', websocket: 'WebSocket', xor: 'XOR' })[
+        value
+      ] ??
+      (value.charAt(0).toUpperCase() + value.slice(1)).replace(
+        /([a-z0-9])([A-Z])/g,
+        '$1 $2',
+      ),
   })),
 });
 
@@ -64,6 +70,7 @@ const definitions = [
     title: 'Transport Time',
     summary: 'Playback time in seconds, with speed and offset controls.',
     domain: 'control',
+    category: 'timing',
     inputs: [],
     outputs: [port('value', 'Time', 'control.f32')],
     params: {
@@ -76,6 +83,7 @@ const definitions = [
     title: 'Beat Clock',
     summary: 'Tempo-locked phase, beat pulse, and bar phase signals.',
     domain: 'control',
+    category: 'timing',
     inputs: [port('time', 'Time', 'control.f32', true)],
     outputs: [
       port('phase', 'Phase', 'control.f32'),
@@ -94,6 +102,7 @@ const definitions = [
     title: 'Oscillator',
     summary: 'A normalized repeating control signal.',
     domain: 'control',
+    category: 'timing',
     inputs: [port('phase', 'Phase', 'control.f32', true)],
     outputs: [port('value', 'Value', 'control.f32')],
     params: {
@@ -114,6 +123,7 @@ const definitions = [
     title: 'Constant',
     summary: 'A fixed control value for parameters and calculations.',
     domain: 'control',
+    category: 'control',
     inputs: [],
     outputs: [port('value', 'Value', 'control.f32')],
     params: {
@@ -125,6 +135,7 @@ const definitions = [
     title: 'Math',
     summary: 'Combines two control values with a basic operation.',
     domain: 'control',
+    category: 'control',
     inputs: [
       port('a', 'A', 'control.f32', true),
       port('b', 'B', 'control.f32', true),
@@ -148,6 +159,7 @@ const definitions = [
     title: 'Map Range',
     summary: 'Remaps a control value between numeric ranges.',
     domain: 'control',
+    category: 'control',
     inputs: [port('value', 'Value', 'control.f32')],
     outputs: [port('value', 'Value', 'control.f32')],
     params: {
@@ -168,6 +180,7 @@ const definitions = [
     title: 'Smooth',
     summary: 'Eases rising and falling control changes over time.',
     domain: 'control',
+    category: 'control',
     inputs: [port('value', 'Value', 'control.f32')],
     outputs: [port('value', 'Value', 'control.f32')],
     params: {
@@ -175,12 +188,16 @@ const definitions = [
       fall: numberParam('Fall (s)', 0.25, 0, 10, 0.01),
       initial: numberParam('Initial', 0, -10, 10, 0.01),
     },
+    execution: {
+      stateful: true,
+    },
   },
   {
     kind: 'pointer',
     title: 'Pointer',
     summary: 'Stage coordinates plus held, press, and release signals.',
     domain: 'control',
+    category: 'interaction-ai',
     inputs: [],
     outputs: [
       port('x', 'X', 'control.f32'),
@@ -196,6 +213,7 @@ const definitions = [
     title: 'AI Chat',
     summary: 'Live text instructions for a connected generative model.',
     domain: 'control',
+    category: 'interaction-ai',
     inputs: [],
     outputs: [port('prompt', 'Prompt', 'text.utf8')],
     params: {
@@ -224,6 +242,7 @@ const definitions = [
     title: 'XY Pad',
     summary: 'A hands-on pair of normalized control signals.',
     domain: 'control',
+    category: 'interaction-ai',
     inputs: [],
     outputs: [
       port('x', 'X', 'control.f32'),
@@ -245,6 +264,7 @@ const definitions = [
     title: 'Audio Level',
     summary: 'A normalized audio-energy control signal.',
     domain: 'control',
+    category: 'inputs',
     inputs: [],
     outputs: [port('value', 'Level', 'control.f32')],
     params: {
@@ -257,6 +277,7 @@ const definitions = [
     title: 'Video Input',
     summary: 'A live camera frame from this browser session.',
     domain: 'frame',
+    category: 'inputs',
     inputs: [],
     outputs: [port('frame', 'Frame', 'frame.rgba')],
     params: {
@@ -270,6 +291,7 @@ const definitions = [
     title: 'Video Model',
     summary: 'Receives generated frames from a compatible worker or API gateway.',
     domain: 'frame',
+    category: 'interaction-ai',
     inputs: [
       port('source', 'Source', 'frame.rgba', true),
       port('prompt', 'Prompt', 'text.utf8'),
@@ -294,10 +316,31 @@ const definitions = [
     },
   },
   {
+    kind: 'solid',
+    title: 'Solid Color',
+    summary: 'A uniform RGBA frame with individually controllable channels.',
+    domain: 'frame',
+    category: 'generators',
+    inputs: [
+      port('red', 'Red', 'control.f32', true),
+      port('green', 'Green', 'control.f32', true),
+      port('blue', 'Blue', 'control.f32', true),
+      port('alpha', 'Alpha', 'control.f32', true),
+    ],
+    outputs: [port('frame', 'Frame', 'frame.rgba')],
+    params: {
+      red: numberParam('Red', 0.08, 0, 1, 0.01),
+      green: numberParam('Green', 0.18, 0, 1, 0.01),
+      blue: numberParam('Blue', 0.42, 0, 1, 0.01),
+      alpha: numberParam('Alpha', 1, 0, 1, 0.01),
+    },
+  },
+  {
     kind: 'plasma',
     title: 'Flow Field',
     summary: 'A fluid procedural color field.',
     domain: 'frame',
+    category: 'generators',
     inputs: [
       port('time', 'Time', 'control.f32', true),
       port('energy', 'Energy', 'control.f32', true),
@@ -315,6 +358,7 @@ const definitions = [
     title: 'Cells',
     summary: 'An animated cellular noise field.',
     domain: 'frame',
+    category: 'generators',
     inputs: [port('time', 'Time', 'control.f32', true)],
     outputs: [port('frame', 'Frame', 'frame.rgba')],
     params: {
@@ -328,6 +372,7 @@ const definitions = [
     title: 'Transform 2D',
     summary: 'Moves, scales, and rotates a frame around an adjustable pivot.',
     domain: 'frame',
+    category: 'image-processing',
     inputs: [
       port('source', 'Source', 'frame.rgba'),
       port('x', 'X', 'control.f32', true),
@@ -356,6 +401,7 @@ const definitions = [
     title: 'Warp',
     summary: 'Distorts a frame with a flowing coordinate field.',
     domain: 'frame',
+    category: 'image-processing',
     inputs: [
       port('source', 'Source', 'frame.rgba'),
       port('amount', 'Amount', 'control.f32', true),
@@ -368,10 +414,122 @@ const definitions = [
     },
   },
   {
+    kind: 'blur',
+    title: 'Blur',
+    summary: 'Softens a frame with a bounded single-pass filter.',
+    domain: 'frame',
+    category: 'image-processing',
+    inputs: [
+      port('source', 'Source', 'frame.rgba'),
+      port('radius', 'Radius', 'control.f32', true),
+    ],
+    outputs: [port('frame', 'Frame', 'frame.rgba')],
+    params: {
+      radius: numberParam('Radius (px)', 8, 0, 24, 0.25),
+    },
+    execution: {
+      visualPasses: 1,
+      renderTargets: 1,
+      stateful: false,
+    },
+  },
+  {
+    kind: 'threshold',
+    title: 'Threshold',
+    summary: 'Extracts an opaque grayscale matte from a selected channel.',
+    domain: 'frame',
+    category: 'image-processing',
+    inputs: [
+      port('source', 'Source', 'frame.rgba'),
+      port('level', 'Level', 'control.f32', true),
+      port('softness', 'Softness', 'control.f32', true),
+    ],
+    outputs: [port('frame', 'Matte', 'frame.rgba')],
+    params: {
+      channel: selectParam('Channel', 'luminance', [
+        'luminance',
+        'red',
+        'green',
+        'blue',
+        'alpha',
+      ]),
+      level: numberParam('Level', 0.5, 0, 1, 0.01),
+      softness: numberParam('Softness', 0.05, 0, 0.5, 0.01),
+      invert: selectParam('Invert', 'off', ['off', 'on']),
+    },
+  },
+  {
+    kind: 'mask',
+    title: 'Mask',
+    summary: 'Uses one frame channel to shape another frame’s transparency.',
+    domain: 'frame',
+    category: 'compositing',
+    inputs: [
+      port('source', 'Source', 'frame.rgba'),
+      port('mask', 'Mask', 'frame.rgba'),
+      port('amount', 'Amount', 'control.f32', true),
+    ],
+    outputs: [port('frame', 'Frame', 'frame.rgba')],
+    params: {
+      channel: selectParam('Channel', 'luminance', [
+        'luminance',
+        'red',
+        'green',
+        'blue',
+        'alpha',
+      ]),
+      amount: numberParam('Amount', 1, 0, 1, 0.01),
+      invert: selectParam('Invert', 'off', ['off', 'on']),
+    },
+  },
+  {
+    kind: 'composite',
+    title: 'Composite',
+    summary: 'Layers two frames with standard source and destination rules.',
+    domain: 'frame',
+    category: 'compositing',
+    inputs: [
+      port('background', 'Background', 'frame.rgba'),
+      port('foreground', 'Foreground', 'frame.rgba'),
+      port('opacity', 'Opacity', 'control.f32', true),
+    ],
+    outputs: [port('frame', 'Frame', 'frame.rgba')],
+    params: {
+      operation: selectParam('Operation', 'sourceOver', [
+        'sourceOver',
+        'destinationOver',
+        'sourceIn',
+        'sourceOut',
+        'sourceAtop',
+        'xor',
+      ]),
+      opacity: numberParam('Opacity', 1, 0, 1, 0.01),
+    },
+  },
+  {
+    kind: 'frameSwitch',
+    title: 'Frame Switch',
+    summary: 'Selects one of four frame inputs by rounded index.',
+    domain: 'frame',
+    category: 'compositing',
+    inputs: [
+      port('a', 'A', 'frame.rgba'),
+      port('b', 'B', 'frame.rgba', true),
+      port('c', 'C', 'frame.rgba', true),
+      port('d', 'D', 'frame.rgba', true),
+      port('index', 'Index', 'control.f32', true),
+    ],
+    outputs: [port('frame', 'Frame', 'frame.rgba')],
+    params: {
+      index: numberParam('Index', 0, 0, 3, 1),
+    },
+  },
+  {
     kind: 'blend',
     title: 'Blend',
     summary: 'Combines two frame signals.',
     domain: 'frame',
+    category: 'compositing',
     inputs: [
       port('a', 'A', 'frame.rgba'),
       port('b', 'B', 'frame.rgba'),
@@ -393,6 +551,7 @@ const definitions = [
     title: 'Trails',
     summary: 'Accumulates an internally delayed previous frame.',
     domain: 'frame',
+    category: 'image-processing',
     inputs: [
       port('source', 'Source', 'frame.rgba'),
       port('feedback', 'Feedback', 'control.f32', true),
@@ -401,12 +560,18 @@ const definitions = [
     params: {
       feedback: numberParam('Feedback', 0.88, 0, 0.99, 0.01),
     },
+    execution: {
+      visualPasses: 1,
+      renderTargets: 2,
+      stateful: true,
+    },
   },
   {
     kind: 'colorGrade',
     title: 'Color Grade',
     summary: 'Adjusts hue, exposure, contrast, and saturation.',
     domain: 'frame',
+    category: 'image-processing',
     inputs: [
       port('source', 'Source', 'frame.rgba'),
       port('hue', 'Hue', 'control.f32', true),
@@ -426,6 +591,7 @@ const definitions = [
     title: 'Display',
     summary: 'Presents a frame on the stage.',
     domain: 'display',
+    category: 'output',
     inputs: [port('source', 'Source', 'frame.rgba')],
     outputs: [],
     params: {},
@@ -443,6 +609,18 @@ export const OPERATOR_REGISTRY: Readonly<Record<NodeKind, OperatorDefinition>> =
 
 export function getOperatorDefinition(kind: NodeKind): OperatorDefinition {
   return OPERATOR_REGISTRY[kind];
+}
+
+export function getOperatorExecution(kind: NodeKind): OperatorExecution {
+  const definition = OPERATOR_REGISTRY[kind];
+  const defaults: OperatorExecution =
+    definition.domain === 'control'
+      ? { visualPasses: 0, renderTargets: 0, stateful: false }
+      : definition.domain === 'display'
+        ? { visualPasses: 1, renderTargets: 0, stateful: false }
+        : { visualPasses: 1, renderTargets: 1, stateful: false };
+
+  return { ...defaults, ...definition.execution };
 }
 
 export function getDefaultParams(kind: NodeKind): Record<string, GraphParamValue> {

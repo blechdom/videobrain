@@ -243,6 +243,19 @@ export const MappingAndTransformNodes: Story = {
   },
 };
 
+export const CompositingAndRoutingNodes: Story = {
+  args: {
+    kinds: ['solid', 'threshold', 'mask', 'composite', 'frameSwitch', 'blur'],
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'The core compositing set with production ports and inline controls. Runnable lessons live in Mask & Composite Lab, Beat Switcher, and Audio Soft Focus.',
+      },
+    },
+  },
+};
+
 export const InactiveNode: Story = {
   args: {
     kinds: ['warp'],

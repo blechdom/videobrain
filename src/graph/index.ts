@@ -1,6 +1,7 @@
 export {
   GRAPH_SCHEMA_VERSION,
   NODE_KINDS,
+  OPERATOR_CATEGORY_IDS,
   type GraphDocument,
   type GraphEdge,
   type GraphEndpoint,
@@ -10,8 +11,11 @@ export {
   type GraphPosition,
   type NodeKind,
   type NumberParamDefinition,
+  type OperatorCategoryId,
   type OperatorDefinition,
   type OperatorDomain,
+  type OperatorExecution,
+  type OperatorExecutionOverrides,
   type OperatorParamDefinition,
   type PortDefinition,
   type PortType,
@@ -36,6 +40,7 @@ export {
   OPERATOR_REGISTRY,
   getDefaultParams,
   getOperatorDefinition,
+  getOperatorExecution,
 } from './operators';
 export {
   GraphDocumentError,
@@ -57,9 +62,23 @@ export {
   type GraphIssue,
   type GraphIssueCode,
 } from './compiler';
+export {
+  GRAPH_PROTOCOL_VERSION,
+  OPERATOR_CATALOG_VERSION,
+  getOperatorCatalog,
+  inspectGraph,
+  type GraphInspection,
+  type GraphInspectionInput,
+  type GraphInspectionNode,
+  type GraphInspectionResources,
+  type OperatorCatalogEntry,
+  type OperatorCatalogPort,
+  type OperatorCatalogSnapshot,
+} from './protocol';
 export { DEFAULT_GRAPH, createDefaultGraph } from './defaultGraph';
 export {
   FOUNDATION_NODE_EXAMPLES,
+  NODE_EXAMPLES,
   GRAPH_PRESETS,
   createGraphPreset,
   getGraphPreset,

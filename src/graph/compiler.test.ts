@@ -85,6 +85,8 @@ describe('graph compiler', () => {
     expect(compiled.reachableNodeIds.has('pointer')).toBe(true);
     expect(compiled.reachableNodeIds.has('prompt')).toBe(true);
     expect(compiled.reachableNodeIds.has('beat')).toBe(true);
+    expect(compiled.visualPasses).toBe(8);
+    expect(compiled.renderTargets).toBe(8);
   });
 
   it('binds text instructions to a model without mixing signal types', () => {

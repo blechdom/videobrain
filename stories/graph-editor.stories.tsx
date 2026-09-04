@@ -213,3 +213,36 @@ export const TransformPlaygroundExample: Story = {
     },
   },
 };
+
+export const MaskAndCompositeLabExample: Story = {
+  args: { presetId: 'mask-composite-lab' },
+  parameters: {
+    docs: {
+      description: {
+        story: 'An animated Threshold frame becomes a matte for Mask, then Composite layers the cutout over a Solid background on a complete Display path.',
+      },
+    },
+  },
+};
+
+export const BeatSwitcherExample: Story = {
+  args: { presetId: 'beat-switcher' },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Beat Clock bar phase is mapped to indices 0–3 so Frame Switch selects each of four animated sources in tempo.',
+      },
+    },
+  },
+};
+
+export const AudioSoftFocusExample: Story = {
+  args: { presetId: 'audio-soft-focus' },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Audio Level stays a scalar control: Map Range converts its deterministic demo pulse or live microphone level into a 0–18 pixel Blur radius.',
+      },
+    },
+  },
+};

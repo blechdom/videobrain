@@ -4,15 +4,16 @@ import { compileGraph } from './compiler';
 import { createDefaultGraph } from './defaultGraph';
 import { NODE_KINDS } from './types';
 import {
-  FOUNDATION_NODE_EXAMPLES,
   GRAPH_PRESETS,
+  FOUNDATION_NODE_EXAMPLES,
+  NODE_EXAMPLES,
   createGraphPreset,
   getGraphPreset,
 } from './presets';
 
 describe('graph presets', () => {
   it('provides unique, discoverable preset metadata', () => {
-    expect(GRAPH_PRESETS).toHaveLength(11);
+    expect(GRAPH_PRESETS).toHaveLength(14);
     expect(new Set(GRAPH_PRESETS.map(({ id }) => id)).size).toBe(
       GRAPH_PRESETS.length,
     );
@@ -75,7 +76,7 @@ describe('graph presets', () => {
     expect(createGraphPreset('full-studio')).toEqual(createDefaultGraph());
   });
 
-  it.each(Object.entries(FOUNDATION_NODE_EXAMPLES))(
+  it.each(Object.entries(NODE_EXAMPLES))(
     '%s is taught by a reachable starter path',
     (kind, presetIds) => {
       expect(presetIds.length).toBeGreaterThan(0);
@@ -93,6 +94,90 @@ describe('graph presets', () => {
       }
     },
   );
+
+  it('preserves the foundation example export contract', () => {
+    expect(Object.keys(FOUNDATION_NODE_EXAMPLES)).toEqual([
+      'constant',
+      'math',
+      'mapRange',
+      'smooth',
+      'transform2d',
+    ]);
+  });
+
+  it('wires the compositing lesson from generators through a matte to Display', () => {
+    const document = createGraphPreset('mask-composite-lab');
+
+    expect(document.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: { nodeId: 'mask-lab-matte-source', portId: 'frame' },
+          target: { nodeId: 'mask-lab-threshold', portId: 'source' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'mask-lab-threshold', portId: 'frame' },
+          target: { nodeId: 'mask-lab-mask', portId: 'mask' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'mask-lab-mask', portId: 'frame' },
+          target: { nodeId: 'mask-lab-composite', portId: 'foreground' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'mask-lab-composite', portId: 'frame' },
+          target: { nodeId: 'mask-lab-display', portId: 'source' },
+        }),
+      ]),
+    );
+  });
+
+  it('routes all four sources and a tempo-mapped index through Beat Switcher', () => {
+    const document = createGraphPreset('beat-switcher');
+    const range = document.nodes.find(({ id }) => id === 'beat-switch-map');
+    const routerInputs = document.edges
+      .filter(({ target }) => target.nodeId === 'beat-switch-router')
+      .map(({ target }) => target.portId);
+
+    expect(routerInputs).toEqual(expect.arrayContaining(['a', 'b', 'c', 'd', 'index']));
+    expect(document.edges).toContainEqual(
+      expect.objectContaining({
+        source: { nodeId: 'beat-switch-clock', portId: 'bar' },
+        target: { nodeId: 'beat-switch-map', portId: 'value' },
+      }),
+    );
+    expect(range?.params).toMatchObject({ outMin: -0.5, outMax: 3.5 });
+
+    const selectedIndex = (barPhase: number) =>
+      Math.max(0, Math.min(3, Math.round(-0.5 + barPhase * 4)));
+    expect([
+      selectedIndex(0),
+      selectedIndex(0.249),
+      selectedIndex(0.25),
+      selectedIndex(0.499),
+      selectedIndex(0.5),
+      selectedIndex(0.749),
+      selectedIndex(0.75),
+      selectedIndex(0.999),
+    ]).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
+  });
+
+  it('maps the audio control fallback to blur radius without an audio frame path', () => {
+    const document = createGraphPreset('audio-soft-focus');
+    const range = document.nodes.find(({ id }) => id === 'soft-focus-map');
+
+    expect(range?.params).toMatchObject({ outMin: 0, outMax: 18 });
+    expect(document.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: { nodeId: 'soft-focus-audio', portId: 'value' },
+          target: { nodeId: 'soft-focus-map', portId: 'value' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'soft-focus-map', portId: 'value' },
+          target: { nodeId: 'soft-focus-blur', portId: 'radius' },
+        }),
+      ]),
+    );
+  });
 
   it('ships the mapping and motion teaching paths as wired examples', () => {
     const controlMath = createGraphPreset('control-math');

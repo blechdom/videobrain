@@ -17,6 +17,9 @@ describe('HelpDialog', () => {
     expect(screen.getByText('Control Math')).toBeVisible();
     expect(screen.getByText('Smooth Pointer')).toBeVisible();
     expect(screen.getByText('Transform Playground')).toBeVisible();
+    expect(screen.getByText('Mask & Composite Lab')).toBeVisible();
+    expect(screen.getByText('Beat Switcher')).toBeVisible();
+    expect(screen.getByText('Audio Soft Focus')).toBeVisible();
     expect(screen.getByText(/every current node appears on a reachable branch/)).toBeVisible();
     expect(screen.getByText('Camera Dream')).toBeVisible();
     expect(screen.getByText(/Starting any new patch stops active camera/)).toBeVisible();
@@ -24,6 +27,8 @@ describe('HelpDialog', () => {
     expect(screen.getByText('Flow Field')).toBeVisible();
     expect(screen.getByText('AI Chat')).toBeVisible();
     expect(screen.getByText('Video Model')).toBeVisible();
+    expect(screen.getByText('Solid Color')).toBeVisible();
+    expect(screen.getByText('Frame Switch')).toBeVisible();
     expect(
       screen.getByText('A hands-on pair of normalized control signals.'),
     ).toBeVisible();
@@ -31,7 +36,10 @@ describe('HelpDialog', () => {
     expect(screen.getByText('Control arithmetic and mapping')).toBeVisible();
     expect(screen.getByText('Smoothed pointer motion')).toBeVisible();
     expect(screen.getByText('Two-dimensional transform controls')).toBeVisible();
-    expect(screen.getByText('Ten patches to try')).toBeVisible();
+    expect(screen.getByText('Thirteen patches to try')).toBeVisible();
+    expect(screen.getByText('Mask and composite fundamentals')).toBeVisible();
+    expect(screen.getByText('Tempo-locked source switching')).toBeVisible();
+    expect(screen.getByText('Audio-controlled soft focus')).toBeVisible();
     expect(screen.getByText('Audio-reactive trails')).toBeVisible();
     expect(screen.getByText('Beat-locked motion')).toBeVisible();
     expect(screen.getByText('Model connector preview')).toBeVisible();

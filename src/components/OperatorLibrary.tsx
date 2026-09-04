@@ -1,36 +1,63 @@
 import { useMemo, useState } from 'react';
-import { Blocks, Search } from 'lucide-react';
+import { Blocks, ChevronDown, Search } from 'lucide-react';
 import {
   OPERATOR_DEFINITIONS,
   type NodeKind,
+  type OperatorCategoryId,
   type OperatorDefinition,
-  type OperatorDomain,
 } from '../graph';
-import { DOMAIN_LABELS, OPERATOR_META } from './operatorMeta';
+import { OPERATOR_CATEGORIES } from './operatorCategories';
+import { OPERATOR_META } from './operatorMeta';
 
 interface OperatorLibraryProps {
   onAdd: (kind: NodeKind) => void;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
-const DOMAIN_ORDER: readonly OperatorDomain[] = ['control', 'frame', 'display'];
+
+const DEFAULT_EXPANDED_CATEGORIES: readonly OperatorCategoryId[] = [
+  'inputs',
+  'generators',
+];
 
 export function OperatorLibrary({ onAdd, searchInputRef }: OperatorLibraryProps) {
   const [query, setQuery] = useState('');
+  const [expandedCategories, setExpandedCategories] = useState<
+    ReadonlySet<OperatorCategoryId>
+  >(() => new Set(DEFAULT_EXPANDED_CATEGORIES));
+  const normalizedQuery = query.trim().toLowerCase();
+  const isSearching = normalizedQuery.length > 0;
   const groups = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    const visible = normalized
+    const visible = normalizedQuery
       ? OPERATOR_DEFINITIONS.filter((definition) =>
-          `${definition.title} ${definition.summary} ${definition.kind}`
+          `${definition.title} ${definition.summary} ${definition.kind} ${definition.category} ${
+            OPERATOR_CATEGORIES.find(
+              (category) => category.id === definition.category,
+            )?.label ?? ''
+          }`
             .toLowerCase()
-            .includes(normalized),
+            .includes(normalizedQuery),
         )
       : OPERATOR_DEFINITIONS;
 
-    return DOMAIN_ORDER.map((domain) => ({
-      domain,
-      definitions: visible.filter((definition) => definition.domain === domain),
+    return OPERATOR_CATEGORIES.map((category) => ({
+      category,
+      definitions: visible.filter(
+        (definition) => definition.category === category.id,
+      ),
     })).filter((group) => group.definitions.length > 0);
-  }, [query]);
+  }, [normalizedQuery]);
+
+  const toggleCategory = (categoryId: OperatorCategoryId) => {
+    setExpandedCategories((current) => {
+      const next = new Set(current);
+      if (next.has(categoryId)) {
+        next.delete(categoryId);
+      } else {
+        next.add(categoryId);
+      }
+      return next;
+    });
+  };
 
   return (
     <aside className="operator-library" aria-label="Node library">
@@ -51,21 +78,73 @@ export function OperatorLibrary({ onAdd, searchInputRef }: OperatorLibraryProps)
           placeholder="Search nodes"
           autoComplete="off"
         />
-        <span className="search-key">/</span>
+        <span className="search-key" aria-hidden="true">
+          /
+        </span>
       </label>
       <div className="operator-groups">
-        {groups.map(({ domain, definitions }) => (
-          <section className="operator-group" key={domain}>
-            <h3 className="operator-group-title">
-              <span>{DOMAIN_LABELS[domain]}</span>
-            </h3>
-            {definitions.map((definition) => (
-              <OperatorTile key={definition.kind} definition={definition} onAdd={onAdd} />
-            ))}
-          </section>
-        ))}
+        {groups.map(({ category, definitions }) => {
+          const expanded = isSearching || expandedCategories.has(category.id);
+          const headingId = `operator-category-${category.id}-heading`;
+          const itemsId = `operator-category-${category.id}-items`;
+          const CategoryIcon = category.icon;
+          return (
+            <section
+              className="operator-group"
+              id={`operator-category-${category.id}`}
+              data-category-id={category.id}
+              aria-labelledby={headingId}
+              key={category.id}
+            >
+              <h3 className="operator-group-title">
+                <button
+                  type="button"
+                  className="operator-group-toggle"
+                  id={headingId}
+                  aria-label={category.label}
+                  aria-expanded={expanded}
+                  aria-controls={itemsId}
+                  disabled={isSearching}
+                  title={category.summary}
+                  onClick={() => toggleCategory(category.id)}
+                >
+                  <span className="operator-category-icon" aria-hidden="true">
+                    <CategoryIcon />
+                  </span>
+                  <span className="operator-category-label">
+                    {category.label}
+                  </span>
+                  <span className="operator-category-count" aria-hidden="true">
+                    {definitions.length}
+                  </span>
+                  <ChevronDown
+                    className="operator-category-chevron"
+                    aria-hidden="true"
+                  />
+                </button>
+              </h3>
+              <div
+                className="operator-group-items"
+                id={itemsId}
+                role="group"
+                aria-labelledby={headingId}
+                hidden={!expanded}
+              >
+                {definitions.map((definition) => (
+                  <OperatorTile
+                    key={definition.kind}
+                    definition={definition}
+                    onAdd={onAdd}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
         {groups.length === 0 ? (
-          <p className="empty-filter">No nodes match “{query}”. Try a signal, visual, or output.</p>
+          <p className="empty-filter">
+            No nodes match “{query}”. Try a category, node, or function.
+          </p>
         ) : null}
       </div>
       <div className="library-footnote">Click a node to place it near the center of the patch.</div>

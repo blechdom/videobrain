@@ -14,10 +14,16 @@ export const NODE_KINDS = [
   'audioLevel',
   'videoInput',
   'videoModel',
+  'solid',
   'plasma',
   'cells',
   'transform2d',
   'warp',
+  'blur',
+  'threshold',
+  'mask',
+  'composite',
+  'frameSwitch',
   'blend',
   'trails',
   'colorGrade',
@@ -25,6 +31,19 @@ export const NODE_KINDS = [
 ] as const;
 
 export type NodeKind = (typeof NODE_KINDS)[number];
+
+export const OPERATOR_CATEGORY_IDS = [
+  'timing',
+  'control',
+  'interaction-ai',
+  'inputs',
+  'generators',
+  'image-processing',
+  'compositing',
+  'output',
+] as const;
+
+export type OperatorCategoryId = (typeof OPERATOR_CATEGORY_IDS)[number];
 
 export type PortType = 'frame.rgba' | 'control.f32' | 'text.utf8';
 
@@ -111,13 +130,23 @@ export interface XYParameterLayout {
   yParamId: string;
 }
 
+export interface OperatorExecution {
+  visualPasses: number;
+  renderTargets: number;
+  stateful: boolean;
+}
+
+export type OperatorExecutionOverrides = Partial<OperatorExecution>;
+
 export interface OperatorDefinition {
   kind: NodeKind;
   title: string;
   summary: string;
   domain: OperatorDomain;
+  category: OperatorCategoryId;
   inputs: readonly PortDefinition[];
   outputs: readonly PortDefinition[];
   params: Readonly<Record<string, OperatorParamDefinition>>;
   parameterLayout?: XYParameterLayout;
+  execution?: Readonly<OperatorExecutionOverrides>;
 }

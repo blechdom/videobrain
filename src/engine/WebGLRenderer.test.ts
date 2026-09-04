@@ -17,6 +17,7 @@ import {
 
 interface FakeWebGLContext {
   gl: WebGL2RenderingContext;
+  bindTexture: Mock;
   clearColor: Mock;
   createTexture: Mock;
   deleteTexture: Mock;
@@ -24,6 +25,7 @@ interface FakeWebGLContext {
   texImage2D: Mock;
   uniform1f: Mock;
   uniform2f: Mock;
+  uniform4f: Mock;
 }
 
 function createFakeWebGLContext(): FakeWebGLContext {
@@ -31,11 +33,13 @@ function createFakeWebGLContext(): FakeWebGLContext {
   const resource = () => ({ id: (resourceId += 1) });
   const deleteTexture = vi.fn();
   const createTexture = vi.fn(resource);
+  const bindTexture = vi.fn();
   const clearColor = vi.fn();
   const pixelStorei = vi.fn();
   const texImage2D = vi.fn();
   const uniform1f = vi.fn();
   const uniform2f = vi.fn();
+  const uniform4f = vi.fn();
   const gl = {
     DEPTH_TEST: 0x0b71,
     CULL_FACE: 0x0b44,
@@ -69,7 +73,7 @@ function createFakeWebGLContext(): FakeWebGLContext {
     bindVertexArray: vi.fn(),
     createTexture,
     deleteTexture,
-    bindTexture: vi.fn(),
+    bindTexture,
     texParameteri: vi.fn(),
     texImage2D,
     texStorage2D: vi.fn(),
@@ -101,11 +105,13 @@ function createFakeWebGLContext(): FakeWebGLContext {
     uniform1f,
     uniform1i: vi.fn(),
     uniform2f,
+    uniform4f,
     activeTexture: vi.fn(),
     drawArrays: vi.fn(),
   } as unknown as WebGL2RenderingContext;
   return {
     gl,
+    bindTexture,
     clearColor,
     createTexture,
     deleteTexture,
@@ -113,6 +119,7 @@ function createFakeWebGLContext(): FakeWebGLContext {
     texImage2D,
     uniform1f,
     uniform2f,
+    uniform4f,
   };
 }
 
@@ -354,6 +361,95 @@ function createTransform2dGraph(): GraphDocument {
   };
 }
 
+function createCompositingGraph(): GraphDocument {
+  return {
+    schemaVersion: GRAPH_SCHEMA_VERSION,
+    nodes: [
+      createGraphNode(
+        'solid',
+        { x: 0, y: 0 },
+        { red: 0.2, green: 0.4, blue: 0.6, alpha: 0.8 },
+        'background',
+      ),
+      createGraphNode('plasma', { x: 0, y: 180 }, {}, 'source'),
+      createGraphNode(
+        'blur',
+        { x: 200, y: 180 },
+        { radius: 12 },
+        'blur',
+      ),
+      createGraphNode('cells', { x: 0, y: 360 }, {}, 'matte-source'),
+      createGraphNode(
+        'threshold',
+        { x: 200, y: 360 },
+        { channel: 'blue', level: 0.35, softness: 0.12, invert: 'on' },
+        'threshold',
+      ),
+      createGraphNode(
+        'mask',
+        { x: 400, y: 180 },
+        { channel: 'alpha', amount: 0.7, invert: 'on' },
+        'mask',
+      ),
+      createGraphNode(
+        'composite',
+        { x: 600, y: 100 },
+        { operation: 'sourceAtop', opacity: 0.65 },
+        'composite',
+      ),
+      createGraphNode(
+        'frameSwitch',
+        { x: 800, y: 100 },
+        { index: 1.6 },
+        'switch',
+      ),
+      createGraphNode('display', { x: 1_000, y: 100 }, {}, 'display'),
+    ],
+    edges: [
+      {
+        id: 'source-blur',
+        source: { nodeId: 'source', portId: 'frame' },
+        target: { nodeId: 'blur', portId: 'source' },
+      },
+      {
+        id: 'matte-threshold',
+        source: { nodeId: 'matte-source', portId: 'frame' },
+        target: { nodeId: 'threshold', portId: 'source' },
+      },
+      {
+        id: 'blur-mask-source',
+        source: { nodeId: 'blur', portId: 'frame' },
+        target: { nodeId: 'mask', portId: 'source' },
+      },
+      {
+        id: 'threshold-mask',
+        source: { nodeId: 'threshold', portId: 'frame' },
+        target: { nodeId: 'mask', portId: 'mask' },
+      },
+      {
+        id: 'background-composite',
+        source: { nodeId: 'background', portId: 'frame' },
+        target: { nodeId: 'composite', portId: 'background' },
+      },
+      {
+        id: 'mask-composite',
+        source: { nodeId: 'mask', portId: 'frame' },
+        target: { nodeId: 'composite', portId: 'foreground' },
+      },
+      {
+        id: 'composite-switch',
+        source: { nodeId: 'composite', portId: 'frame' },
+        target: { nodeId: 'switch', portId: 'a' },
+      },
+      {
+        id: 'switch-display',
+        source: { nodeId: 'switch', portId: 'frame' },
+        target: { nodeId: 'display', portId: 'source' },
+      },
+    ],
+  };
+}
+
 function createImageFrame(
   width: number,
   height: number,
@@ -390,6 +486,24 @@ function wroteUniform2f(
   );
 }
 
+function wroteUniform4f(
+  uniform4f: Mock,
+  name: string,
+  x: number,
+  y: number,
+  z: number,
+  w: number,
+): boolean {
+  return uniform4f.mock.calls.some(
+    ([location, writtenX, writtenY, writtenZ, writtenW]) =>
+      (location as unknown as { name?: string } | null)?.name === name &&
+      writtenX === x &&
+      writtenY === y &&
+      writtenZ === z &&
+      writtenW === w,
+  );
+}
+
 function lastUniformValue(uniform1f: Mock, name: string): number | undefined {
   for (let index = uniform1f.mock.calls.length - 1; index >= 0; index -= 1) {
     const call = uniform1f.mock.calls[index] as unknown[] | undefined;
@@ -403,6 +517,7 @@ function lastUniformValue(uniform1f: Mock, name: string): number | undefined {
 }
 
 function createRendererHarness(): {
+  bindTexture: Mock;
   canvas: HTMLCanvasElement;
   clearColor: Mock;
   createTexture: Mock;
@@ -413,10 +528,12 @@ function createRendererHarness(): {
   texImage2D: Mock;
   uniform1f: Mock;
   uniform2f: Mock;
+  uniform4f: Mock;
 } {
   const canvas = document.createElement('canvas');
   const {
     gl,
+    bindTexture,
     clearColor,
     createTexture,
     deleteTexture,
@@ -424,6 +541,7 @@ function createRendererHarness(): {
     texImage2D,
     uniform1f,
     uniform2f,
+    uniform4f,
   } =
     createFakeWebGLContext();
   Object.defineProperty(canvas, 'getContext', {
@@ -437,6 +555,7 @@ function createRendererHarness(): {
   });
   renderer.setGraph(createVideoGraph());
   return {
+    bindTexture,
     canvas,
     clearColor,
     createTexture,
@@ -447,6 +566,7 @@ function createRendererHarness(): {
     texImage2D,
     uniform1f,
     uniform2f,
+    uniform4f,
   };
 }
 
@@ -992,6 +1112,35 @@ describe('frame-node evaluation', () => {
     renderer.reset();
     expect(clearColor).toHaveBeenCalledWith(0, 0, 0, 0);
     expect(clearColor).toHaveBeenLastCalledWith(0.008, 0.01, 0.016, 1);
+    renderer.dispose();
+  });
+
+  it('routes compositing parameters through bounded shader uniforms', () => {
+    const { bindTexture, createTexture, gl, renderer, uniform1f, uniform4f } =
+      createRendererHarness();
+    const transparentTexture = createTexture.mock.results[1]?.value as unknown as
+      | WebGLTexture
+      | undefined;
+    renderer.setGraph(createCompositingGraph());
+    bindTexture.mockClear();
+
+    expect(renderer.render(0)).toMatchObject({ rendered: true, passCount: 9 });
+    expect(wroteUniform4f(uniform4f, 'uColor', 0.2, 0.4, 0.6, 0.8)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uRadius', 12)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uChannel', 3)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uLevel', 0.35)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uSoftness', 0.12)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uChannel', 4)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uAmount', 0.7)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uOpacity', 0.65)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uOperation', 4)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uIndex', 2)).toBe(true);
+    expect(
+      bindTexture.mock.calls.filter(
+        ([target, texture]) =>
+          target === gl.TEXTURE_2D && texture === transparentTexture,
+      ),
+    ).toHaveLength(3);
     renderer.dispose();
   });
 });
