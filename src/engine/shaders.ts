@@ -548,6 +548,64 @@ void main() {
 }
 `;
 
+const feedbackSpiral = `#version 300 es
+precision highp float;
+
+in vec2 vUv;
+out vec4 outColor;
+
+uniform sampler2D uSource;
+uniform sampler2D uPrevious;
+uniform vec2 uResolution;
+uniform vec2 uCenter;
+uniform float uRotationStep;
+uniform float uZoomStep;
+uniform float uRetention;
+uniform float uDeltaTime;
+uniform float uHistoryReady;
+
+void main() {
+  vec4 current = texture(uSource, vUv);
+  if (uHistoryReady < 0.5) {
+    outColor = current;
+    return;
+  }
+
+  if (uDeltaTime <= 0.0) {
+    outColor = texture(uPrevious, vUv);
+    return;
+  }
+
+  float aspect = uResolution.x / max(uResolution.y, 1.0);
+  vec2 position = vUv - uCenter;
+  position.x *= aspect;
+  float cosine = cos(uRotationStep);
+  float sine = sin(uRotationStep);
+  position = vec2(
+    cosine * position.x + sine * position.y,
+    -sine * position.x + cosine * position.y
+  ) / max(uZoomStep, 0.0001);
+  position.x /= aspect;
+  vec2 previousUv = position + uCenter;
+
+  vec4 previous = vec4(0.0);
+  if (
+    all(greaterThanEqual(previousUv, vec2(0.0))) &&
+    all(lessThanEqual(previousUv, vec2(1.0)))
+  ) {
+    previous = texture(uPrevious, previousUv);
+  }
+
+  float retainedAlpha = previous.a * clamp(uRetention, 0.0, 1.0);
+  float currentAlpha = current.a * (1.0 - retainedAlpha);
+  float alpha = retainedAlpha + currentAlpha;
+  vec3 premultiplied =
+    previous.rgb * retainedAlpha + current.rgb * currentAlpha;
+  vec3 color = alpha > 0.00001 ? premultiplied / alpha : vec3(0.0);
+  outColor = vec4(clamp(color, 0.0, 1.0), clamp(alpha, 0.0, 1.0));
+}
+`;
+
 const colorGrade = `#version 300 es
 precision highp float;
 
@@ -608,6 +666,7 @@ export const FRAME_FRAGMENT_SHADERS: Partial<Record<NodeKind, string>> = {
   frameSwitch,
   blend,
   trails,
+  feedbackSpiral,
   colorGrade,
   display,
 };

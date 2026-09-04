@@ -8,7 +8,8 @@ The proof of concept opens into a working composition and runs locally without a
 
 - Typed `control.f32`, `text.utf8`, and `frame.rgba` connections
 - Demand-rooted graph compilation with cycle rejection
-- Procedural GPU sources, warp, blend, trails, color grading, and display
+- Procedural GPU sources, warp, blend, trails, spiral feedback, color grading,
+  and display
 - Solid color, soft thresholding, alpha masks, Porter-Duff compositing,
   four-input frame switching, and control-driven blur
 - Transport/beat clocks, oscillator, pointer position/held/press/release,
@@ -22,7 +23,7 @@ The proof of concept opens into a working composition and runs locally without a
   display-synced/60/30 fps monitor pacing
 - Node creation, connection, deletion, movement, and parameter editing
 - Searchable, collapsible node categories backed by the operator registry
-- A New patch menu with Blank Canvas and thirteen complete starter graphs
+- A New patch menu with Blank Canvas and fourteen complete starter graphs
 - Always-visible inline sliders, selects, and XY controls synchronized with the inspector
 - Undo and redo for project edits
 - Versioned local autosave plus JSON import and export
@@ -92,9 +93,9 @@ performs no model inference or network request, so the default project requests
 neither device permission nor a server connection.
 
 Use **New patch** to start from Blank Canvas, Full Studio, Beat-Synced
-Color, Two-World Mixer, Control Math, Smooth Pointer, Transform Playground,
-Mask & Composite Lab, Beat Switcher, Audio Soft Focus, Pointer Bend, Mic Pulse
-Trails, Camera Dream, or Prompted Visual Preview. The graph replacement is
+Color, Spiral Feedback Lab, Two-World Mixer, Control Math, Smooth Pointer,
+Transform Playground, Mask & Composite Lab, Beat Switcher, Audio Soft Focus,
+Pointer Bend, Mic Pulse Trails, Camera Dream, or Prompted Visual Preview. The graph replacement is
 undoable, but it stops active camera and microphone sessions, closes model
 connections, and clears session-only model keys. Device-based starters remain
 in fallback mode until access is explicitly enabled again.
@@ -109,9 +110,22 @@ in fallback mode until access is explicitly enabled again.
 | Mask & Composite Lab | Solid, Threshold, Mask, Composite | An animated matte cuts out a frame before it is layered over a flat background. |
 | Beat Switcher | Frame Switch | Bar phase selects four visibly different frame sources in tempo. |
 | Audio Soft Focus | Blur | Demo or microphone energy is mapped to a 0–18 pixel blur radius. |
+| Spiral Feedback Lab | Spiral Feedback | The retained prior output rotates and zooms around an XY-controlled center before the live frame is blended in. |
 
 Every teaching node in this set is connected to a reachable graph branch that
 ends at Display; none of these starters contains a disconnected demonstration.
+
+Spiral Feedback is a purpose-built internally stateful image effect, not a
+general graph-delay primitive. Feedback means the fraction retained after one
+elapsed visual second and is bounded below full retention. Pause leaves its
+history unchanged; **Return to frame zero** discards that history and
+deterministically seeds it again from the frame-zero source. These rules keep
+the result tunable while ordinary graph cycles remain invalid.
+
+The bundled Spiral Feedback Lab stays permission-free. To spiral a live incoming
+image instead, replace its Cells connection with **Video Input · Frame**, then
+press **Start camera** inside Video Input and approve the browser prompt. Adding
+or wiring the camera node alone never starts it.
 
 Local/API model modes connect only to endpoints implementing the
 `videobrain.frames.v1` adapter contract; arbitrary vendor endpoints are not

@@ -95,6 +95,11 @@ describe('operator registry', () => {
       renderTargets: 2,
       stateful: true,
     });
+    expect(getOperatorExecution('feedbackSpiral')).toEqual({
+      visualPasses: 1,
+      renderTargets: 2,
+      stateful: true,
+    });
   });
 
   it('keeps all public signals within the three exact port types', () => {
@@ -305,6 +310,62 @@ describe('operator registry', () => {
         { value: 'repeat', label: 'Repeat' },
         { value: 'mirror', label: 'Mirror' },
       ],
+    });
+  });
+
+  it('defines Spiral Feedback with per-second controls and explicit retained state', () => {
+    const definition = OPERATOR_REGISTRY.feedbackSpiral;
+
+    expect(definition.domain).toBe('frame');
+    expect(definition.category).toBe('image-processing');
+    expect(definition.inputs).toEqual([
+      { id: 'source', label: 'Source', type: 'frame.rgba', optional: false },
+      {
+        id: 'feedback',
+        label: 'Feedback',
+        type: 'control.f32',
+        optional: true,
+      },
+      {
+        id: 'rotation',
+        label: 'Rotation',
+        type: 'control.f32',
+        optional: true,
+      },
+      { id: 'zoom', label: 'Zoom', type: 'control.f32', optional: true },
+      {
+        id: 'centerX',
+        label: 'Center X',
+        type: 'control.f32',
+        optional: true,
+      },
+      {
+        id: 'centerY',
+        label: 'Center Y',
+        type: 'control.f32',
+        optional: true,
+      },
+    ]);
+    expect(definition.outputs).toEqual([
+      { id: 'frame', label: 'Frame', type: 'frame.rgba', optional: false },
+    ]);
+    expect(getDefaultParams('feedbackSpiral')).toEqual({
+      feedback: 0.62,
+      rotation: 30,
+      zoom: 1.06,
+      centerX: 0.5,
+      centerY: 0.5,
+    });
+    expect(definition.params).toMatchObject({
+      feedback: { label: 'Feedback (1 s)', min: 0, max: 0.99 },
+      rotation: { label: 'Rotation (°/s)', min: -360, max: 360 },
+      zoom: { label: 'Zoom (×/s)', min: 0.5, max: 2 },
+    });
+    expect(definition.parameterLayout).toEqual({
+      type: 'xy',
+      label: 'Center',
+      xParamId: 'centerX',
+      yParamId: 'centerY',
     });
   });
 

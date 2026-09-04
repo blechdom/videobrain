@@ -20,6 +20,7 @@ describe('HelpDialog', () => {
     expect(screen.getByText('Mask & Composite Lab')).toBeVisible();
     expect(screen.getByText('Beat Switcher')).toBeVisible();
     expect(screen.getByText('Audio Soft Focus')).toBeVisible();
+    expect(screen.getByText('Spiral Feedback Lab')).toBeVisible();
     expect(screen.getByText(/every current node appears on a reachable branch/)).toBeVisible();
     expect(screen.getByText('Camera Dream')).toBeVisible();
     expect(screen.getByText(/Starting any new patch stops active camera/)).toBeVisible();
@@ -29,6 +30,10 @@ describe('HelpDialog', () => {
     expect(screen.getByText('Video Model')).toBeVisible();
     expect(screen.getByText('Solid Color')).toBeVisible();
     expect(screen.getByText('Frame Switch')).toBeVisible();
+    expect(screen.getByText('Spiral Feedback')).toBeVisible();
+    expect(
+      screen.getByText('Rotates and zooms retained history into a spiralling frame.'),
+    ).toBeVisible();
     expect(
       screen.getByText('A hands-on pair of normalized control signals.'),
     ).toBeVisible();
@@ -36,11 +41,18 @@ describe('HelpDialog', () => {
     expect(screen.getByText('Control arithmetic and mapping')).toBeVisible();
     expect(screen.getByText('Smoothed pointer motion')).toBeVisible();
     expect(screen.getByText('Two-dimensional transform controls')).toBeVisible();
-    expect(screen.getByText('Thirteen patches to try')).toBeVisible();
+    expect(screen.getByText('Fourteen patches to try')).toBeVisible();
     expect(screen.getByText('Mask and composite fundamentals')).toBeVisible();
     expect(screen.getByText('Tempo-locked source switching')).toBeVisible();
     expect(screen.getByText('Audio-controlled soft focus')).toBeVisible();
     expect(screen.getByText('Audio-reactive trails')).toBeVisible();
+    expect(screen.getByText('Spiralling recursive image')).toBeVisible();
+    expect(
+      screen.getByText(/Return to frame zero discards and deterministically re-seeds history/),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/replace Cells with Video Input and explicitly start the camera/),
+    ).toBeVisible();
     expect(screen.getByText('Beat-locked motion')).toBeVisible();
     expect(screen.getByText('Model connector preview')).toBeVisible();
     expect(screen.getByText('AI Chat and Video Model')).toBeVisible();

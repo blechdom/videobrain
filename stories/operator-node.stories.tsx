@@ -256,6 +256,21 @@ export const CompositingAndRoutingNodes: Story = {
   },
 };
 
+export const SpiralFeedbackNode: Story = {
+  args: {
+    kinds: ['feedbackSpiral'],
+    selectedKind: 'feedbackSpiral',
+    compact: true,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'The production Spiral Feedback card exposes bounded per-second retention, rotation, zoom, and a two-axis center. Its retained frame is internal state, so ordinary graph cycles remain invalid.',
+      },
+    },
+  },
+};
+
 export const InactiveNode: Story = {
   args: {
     kinds: ['warp'],

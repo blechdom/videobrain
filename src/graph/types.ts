@@ -26,6 +26,7 @@ export const NODE_KINDS = [
   'frameSwitch',
   'blend',
   'trails',
+  'feedbackSpiral',
   'colorGrade',
   'display',
 ] as const;

@@ -56,7 +56,7 @@ The complete guidance is in
 
 ## Current proof of concept
 
-The app currently opens the permission-free **Signal Graph** with three signal types, a demand-rooted execution plan, WebGL2 multipass renderer, editor history, bounded JSON persistence, live diagnostics, responsive UI, and an accessible New patch menu with Blank Canvas plus thirteen complete starter graphs. Its model node defaults to a built-in visual preview; compatible external adapters are optional.
+The app currently opens the permission-free **Signal Graph** with three signal types, a demand-rooted execution plan, WebGL2 multipass renderer, editor history, bounded JSON persistence, live diagnostics, responsive UI, and an accessible New patch menu with Blank Canvas plus fourteen complete starter graphs. Its model node defaults to a built-in visual preview; compatible external adapters are optional.
 
 ### Implemented node catalog
 
@@ -86,6 +86,7 @@ The app currently opens the permission-free **Signal Graph** with three signal t
 | Frame process | ✅ Frame Switch | Index-selects one of four frame inputs |
 | Frame process | ✅ Blur | Bounded, control-driven soft focus radius |
 | Frame process | ✅ Trails | Retained-frame accumulation with feedback control |
+| Frame process | ✅ Spiral Feedback | Internally retained prior output transformed by per-second rotation and zoom around a movable center |
 | Frame process | ✅ Color Grade | Hue, exposure, contrast, and saturation adjustment |
 | Frame process | ✅ Transform 2D | Translation, scale, rotation, pivot, and transparent/clamp/repeat/mirror edge behavior |
 | Output | ✅ Display | Marks a frame path for presentation on the output stage |
@@ -103,7 +104,7 @@ node's serialized kind, signal type, port compatibility, or runtime domain.
 | `interaction-ai` | Interaction & AI | Pointer, XY Pad, AI Chat, Video Model | Direct human controls and model-oriented interaction |
 | `inputs` | Inputs | Audio Level, Video Input | Browser media, files, sensors, devices, and gateway ingress |
 | `generators` | Generators | Solid, Flow Field, Cells | Permission-free visual creation such as gradients, shapes, text, and noise |
-| `image-processing` | Image Processing | Transform 2D, Warp, Blur, Threshold, Trails, Color Grade | Single-stream spatial, color, filter, and temporal image work |
+| `image-processing` | Image Processing | Transform 2D, Warp, Blur, Threshold, Trails, Spiral Feedback, Color Grade | Single-stream spatial, color, filter, and temporal image work |
 | `compositing` | Compositing | Mask, Composite, Frame Switch, Blend | Multi-frame masking, layering, mixing, and routing |
 | `output` | Output | Display | Demand roots for display, recording, streaming, and gateways |
 
@@ -137,7 +138,8 @@ reveals every matching group so a collapsed category never hides a result.
 - ✅ Fullscreen output.
 - ✅ Versioned local autosave and transactional JSON import/export.
 - ✅ Graph size, file size, resolution, pixel count, render-target, and pass budgets.
-- ✅ Cycle rejection except for state intentionally retained inside Trails.
+- ✅ Cycle rejection except for state intentionally retained inside Trails and
+  Spiral Feedback.
 - ✅ Read-only operator catalog and graph inspection with stable IDs, explicit
   port indexes, parameter-layout hints, bindings, reachability, diagnostics,
   execution orders, per-kind execution metadata, aggregate visual-pass/target
@@ -191,6 +193,7 @@ Three filters order the work:
 | --- | --- | --- | --- |
 | Foundation A — controls and spatial mapping | ✅ | Constant, Math, Map Range, Smooth, and Transform 2D | *Control Math*, *Smooth Pointer*, and *Transform Playground* |
 | Foundation B — compositing loop | ✅ | Solid, Threshold, Mask, Composite, Frame Switch, and Blur | *Mask & Composite Lab*, *Beat Switcher*, and *Audio Soft Focus* |
+| Visual feedback study | ✅ | Purpose-built Spiral Feedback with bounded per-second retention, spatial transformation, pause behavior, and deterministic reset | *Spiral Feedback Lab* |
 | 1 — local media and framing | 🚧 Next | Image File, Video File, Screen Capture, Crop/Fit, Resize, and Test Card | *Image Color Lab*, *Clip Framing*, and *Screen Layout & Test*; every new node must be output-reachable across the set |
 | 2 — explicit frame state | 🚧 Next | General Frame Delay/Feedback with visible initialization, read/commit, pause, seek, and reset rules | *Feedback Laboratory* |
 | 3 — decisions and events | 🚧 Next | `control.bool`, `event.trigger`, explicit bool/control conversion, Compare, Logic, Trigger, Gate, Hold, Frame Hold, Counter, Timer, and seeded Random | *Cue Logic Basics*, *Freeze & Release*, *Beat-cut Montage*, *Timed Transition*, and *Triggered Variations* |
@@ -328,6 +331,7 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 | P1 | ✅ Matte / Mask | Apply a selected mask channel to source alpha |
 | P1 | ✅ Composite | Source/destination Over, source In/Out/Atop, and XOR Porter-Duff operations |
 | P1 | ✅ Frame Switch | Select one of four frame inputs with an integer index |
+| P1 | ✅ Spiral Feedback | Rotate and zoom an internally retained prior output around a movable center, then blend in the live source |
 | P1 | 🚧 Frame Delay / Feedback | Explicit previous-tick read/commit boundary with deterministic initialization and reset |
 | P1 | 🚧 Frame Hold | Retain or release a frame from an explicit event/control input without creating an ordinary graph cycle |
 | P1 | 🚧 Crop / Fit | Crop, letterbox, cover, contain, and safe-area guides |
@@ -360,6 +364,16 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 | P3 | 🔬 Cellular Automata | General stateful grid simulation |
 | P3 | 🔬 Depth Composite | Occlusion and depth-aware focus/fog |
 | P3 | 🔬 Neural Effect | Segmentation, depth, style, or generation with explicit latency |
+
+Spiral Feedback is a specialized effect rather than the general Frame Delay /
+Feedback primitive above. It owns one previous-output buffer pair internally,
+reports one visual pass, two render targets, and stateful execution, and never
+permits an ordinary graph cycle. Feedback is clamped to `0…0.99` and means the
+fraction retained after one elapsed visual second; rotation and zoom use the
+same elapsed-time basis. A paused frame has zero elapsed time and leaves history
+unchanged. First evaluation, reset, or rewind discards the old history and
+deterministically seeds from the current source. The general read/commit,
+routing, seek, and initialization contract in Wave 2 remains unbuilt.
 
 ### Audio analysis and processing
 
@@ -578,7 +592,7 @@ Keep these paths distinct in product language and implementation:
 
 ## Example patch and preset library
 
-Arrows show the primary signal path. A semicolon separates modulation. Nodes not yet shipped are marked with their roadmap status. The current New patch menu ships Blank Canvas plus thirteen named examples below: Full Studio, Beat-Synced Color, Two-World Mixer, Control Math, Smooth Pointer, Transform Playground, Mask & Composite Lab, Beat Switcher, Audio Soft Focus, Pointer Bend, Mic Pulse Trails, Camera Dream, and Prompted Visual Preview. Choosing one is an undoable, validated graph replacement; it stops device/model sessions and clears transient credentials. A future gallery should add thumbnails, learning goals, required capabilities, expected GPU cost, output aspect, and a "restore original" action.
+Arrows show the primary signal path. A semicolon separates modulation. Nodes not yet shipped are marked with their roadmap status. The current New patch menu ships Blank Canvas plus fourteen named examples below: Full Studio, Beat-Synced Color, Spiral Feedback Lab, Two-World Mixer, Control Math, Smooth Pointer, Transform Playground, Mask & Composite Lab, Beat Switcher, Audio Soft Focus, Pointer Bend, Mic Pulse Trails, Camera Dream, and Prompted Visual Preview. Choosing one is an undoable, validated graph replacement; it stops device/model sessions and clears transient credentials. A future gallery should add thumbnails, learning goals, required capabilities, expected GPU cost, output aspect, and a "restore original" action.
 
 ### Beginner: learn one idea at a time
 
@@ -674,25 +688,35 @@ Arrows show the primary signal path. A semicolon separates modulation. Nodes not
     Demonstrates that audio analysis remains a control signal rather than an
     audio frame. The deterministic demo pulse works before microphone opt-in.
 
-15. **Poster Maker — P1**
+15. **Spiral Feedback Lab — available in New patch**
+
+    `Transport Time → Cells → Spiral Feedback → Color Grade → Display; XY Pad.X/Y → Spiral Feedback.Center X/Y`
+
+    Learning goal: see how a purpose-built retained-frame boundary differs from
+    an ordinary graph cycle. The prior output rotates and zooms before the live
+    Cells frame is blended in; XY Pad moves the center. Feedback is bounded and
+    measured per elapsed visual second, pause preserves history, and Return to
+    frame zero deterministically discards and seeds that history again.
+
+16. **Poster Maker — P1**
 
    `Gradient 🚧 → Text 🚧 → Composite → Color Grade → Display`
 
    A still-first exercise suitable for screenshots.
 
-16. **Feedback Basics — available as a manual recipe**
+17. **Feedback Basics — available as a manual recipe**
 
    `Cells → Warp → Trails → Display; Oscillator → Trails.Feedback`
 
    Explains why retained state differs from a normal graph cycle.
 
-17. **Shape Rhythm — P1**
+18. **Shape Rhythm — P1**
 
    `Shape 🚧 → Transform 2D → Display; Oscillator → Map Range → Transform 2D.Rotation`
 
    Covers pivots and mapped modulation.
 
-18. **Image Remix — P1**
+19. **Image Remix — P1**
 
     `Image File 🚧 → Kaleidoscope 🚧 → Color Grade → Display`
 
@@ -844,7 +868,7 @@ Every bundled example should ship with:
 - one-click restore that never overwrites the user's saved patch without confirmation;
 - automated load/compile/render smoke coverage.
 
-A useful initial gallery is 13 excellent, legible examples rather than 100 fragile patches.
+A useful initial gallery is 14 excellent, legible examples rather than 100 fragile patches.
 
 ## Architecture lessons worth preserving
 
@@ -1111,7 +1135,7 @@ These references define the capabilities and constraints behind the I/O plan:
 - Which first gateway platform and protocols unlock the most installations.
 - Whether modules can contain device permissions or must receive devices through explicit outer ports.
 - How custom shaders and third-party nodes earn trust.
-- Which next examples best expand the current 13-patch teaching set without
+- Which next examples best expand the current 14-patch teaching set without
   sacrificing clarity or coverage.
 
 This document should stay honest: move a line to ✅ only when it is usable, cleaned up, tested, and documented in the shipping app.

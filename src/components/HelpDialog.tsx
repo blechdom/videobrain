@@ -102,6 +102,11 @@ const recipes = [
     note: 'Open Mic Pulse Trails, then start the microphone inside Audio Level. It emits a 0–1 loudness control; it does not play or pass through sound.',
   },
   {
+    title: 'Spiralling recursive image',
+    path: 'Cells → Spiral Feedback → Color Grade → Display; XY Pad → Center X/Y',
+    note: 'Open Spiral Feedback Lab. The node rotates and zooms its retained prior output before blending it with the live Cells frame. Feedback is retention after one elapsed visual second and is capped below 1; pause does not advance it, and Return to frame zero discards and deterministically re-seeds history. This is internal state, not permission to wire an ordinary cycle. To spiral live video, replace Cells with Video Input and explicitly start the camera inside that node; the bundled lesson remains permission-free.',
+  },
+  {
     title: 'Live camera dream',
     path: 'Video Input + Flow Field → Blend → Warp → Color Grade → Display; Pointer X/Y → Warp/Hue',
     note: 'Open Camera Dream, start Video Input, then explore fit, mirror, pointer distortion, and color. The Flow Field keeps the patch visible before camera opt-in.',
@@ -339,7 +344,7 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
           </section>
 
           <section id="help-recipes" className="help-section">
-            <h2>Thirteen patches to try</h2>
+            <h2>Fourteen patches to try</h2>
             <div className="help-recipe-list">
               {recipes.map((recipe) => (
                 <article key={recipe.title}>

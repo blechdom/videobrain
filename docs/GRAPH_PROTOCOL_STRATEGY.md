@@ -390,9 +390,11 @@ education aligned instead of treating them as cleanup after implementation.
 Module priority follows graph leverage and missing structural roles, not the
 length of an external operator catalog:
 
-1. **Shipped foundation:** control math/mapping/smoothing, 2D transform, solid,
-   threshold, mask, composite, frame switch, and blur, each exercised by an
-   output-reachable starter.
+1. **Shipped foundation and specialized feedback:** control
+   math/mapping/smoothing, 2D transform, solid, threshold, mask, composite,
+   frame switch, blur, and Spiral Feedback, each exercised by an
+   output-reachable starter. Spiral Feedback owns retained state internally; it
+   does not replace the general Delay/Feedback boundary below.
 2. **Local media and framing:** Image File, Video File, Screen Capture, Crop/Fit,
    Resize, and a Test Card. Teaching graphs: *Image Color Lab*, *Clip Framing*,
    and *Screen Layout & Test*.

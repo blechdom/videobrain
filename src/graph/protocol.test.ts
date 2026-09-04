@@ -22,6 +22,7 @@ describe('graph protocol inspection', () => {
     expect(first.protocolVersion).toBe(GRAPH_PROTOCOL_VERSION);
     expect(first.graphSchemaVersion).toBe(GRAPH_SCHEMA_VERSION);
     expect(first.catalogVersion).toBe(OPERATOR_CATALOG_VERSION);
+    expect(first.catalogVersion).toBe(2);
     expect(first.operators.map(({ kind }) => kind)).toEqual(
       OPERATOR_DEFINITIONS.map(({ kind }) => kind),
     );
@@ -55,6 +56,13 @@ describe('graph protocol inspection', () => {
     });
     expect(
       first.operators.find(({ kind }) => kind === 'trails')?.execution,
+    ).toEqual({
+      visualPasses: 1,
+      renderTargets: 2,
+      stateful: true,
+    });
+    expect(
+      first.operators.find(({ kind }) => kind === 'feedbackSpiral')?.execution,
     ).toEqual({
       visualPasses: 1,
       renderTargets: 2,
@@ -208,5 +216,40 @@ describe('graph protocol inspection', () => {
       result.nodes.find(({ id }) => id === 'inactive-history')?.execution
         .stateful,
     ).toBe(true);
+  });
+
+  it('reports Spiral Feedback as one stateful pass with two retained targets', () => {
+    const document: GraphDocument = {
+      schemaVersion: GRAPH_SCHEMA_VERSION,
+      nodes: [
+        createGraphNode('solid', { x: 0, y: 0 }, {}, 'source'),
+        createGraphNode('feedbackSpiral', { x: 200, y: 0 }, {}, 'spiral'),
+        createGraphNode('display', { x: 400, y: 0 }, {}, 'screen'),
+      ],
+      edges: [
+        {
+          id: 'source-spiral',
+          source: { nodeId: 'source', portId: 'frame' },
+          target: { nodeId: 'spiral', portId: 'source' },
+        },
+        {
+          id: 'spiral-screen',
+          source: { nodeId: 'spiral', portId: 'frame' },
+          target: { nodeId: 'screen', portId: 'source' },
+        },
+      ],
+    };
+
+    const result = inspectGraph(document);
+
+    expect(result).toMatchObject({
+      ok: true,
+      frameOrder: ['source', 'spiral'],
+      resources: {
+        visualPasses: 3,
+        renderTargets: 3,
+        statefulNodeIds: ['spiral'],
+      },
+    });
   });
 });

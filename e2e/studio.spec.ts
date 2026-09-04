@@ -137,12 +137,15 @@ test('starts blank and example graphs from the New patch menu', async ({
   await trigger.click();
   const menu = page.getByRole('menu', { name: 'New patch starters' });
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('menuitem')).toHaveCount(14);
+  await expect(menu.getByRole('menuitem')).toHaveCount(15);
   await expect(
     menu.getByRole('menuitem', { name: /Blank Canvas/ }),
   ).toBeFocused();
   await expect(
     menu.getByRole('menuitem', { name: /Beat-Synced Color/ }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: /Spiral Feedback Lab/ }),
   ).toBeVisible();
   await expect(
     menu.getByRole('menuitem', { name: /Control Math/ }),
@@ -348,6 +351,29 @@ test('runs every teaching node inside a visible starter graph', async ({
       .locator('article[aria-label="Audio Level node"]')
       .getByRole('button', { name: 'Start mic' }),
   ).toBeVisible();
+
+  await loadStarter('Spiral Feedback Lab');
+  const spiral = page.locator('article[aria-label="Spiral Feedback node"]');
+  await expect(
+    spiral.getByRole('slider', {
+      name: 'Spiral Feedback Feedback (1 s)',
+    }),
+  ).toHaveValue('0.82');
+  await expect(
+    spiral.getByRole('slider', {
+      name: 'Spiral Feedback Rotation (°/s)',
+    }),
+  ).toHaveValue('42');
+  await expect(
+    spiral.getByRole('slider', { name: 'Spiral Feedback Zoom (×/s)' }),
+  ).toHaveValue('1.16');
+  await expect(
+    spiral.getByRole('button', { name: 'Spiral Feedback Center' }),
+  ).toBeVisible();
+  await expect(spiral).toContainText('X 0.46 · Y 0.54');
+
+  await page.getByTitle('Return to frame zero').click();
+  await expect(page.getByText('Playback returned to frame zero.')).toBeVisible();
 });
 
 test('stops active device sessions before replacing a patch', async ({

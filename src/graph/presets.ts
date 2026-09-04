@@ -24,6 +24,11 @@ export const GRAPH_PRESETS = [
     description: 'Tempo, oscillator, warp, and trails in one rhythmic visual.',
   },
   {
+    id: 'spiral-feedback-lab',
+    title: 'Spiral Feedback Lab',
+    description: 'Rotate and zoom retained frames into a vivid recursive spiral.',
+  },
+  {
     id: 'two-world-mixer',
     title: 'Two-World Mixer',
     description: 'Blend Flow Field and Cells with an animated mix control.',
@@ -102,6 +107,7 @@ export const NODE_EXAMPLES = {
   composite: ['mask-composite-lab'],
   frameSwitch: ['beat-switcher'],
   blur: ['audio-soft-focus'],
+  feedbackSpiral: ['spiral-feedback-lab'],
 } as const satisfies Record<
   | 'constant'
   | 'math'
@@ -113,7 +119,8 @@ export const NODE_EXAMPLES = {
   | 'mask'
   | 'composite'
   | 'frameSwitch'
-  | 'blur',
+  | 'blur'
+  | 'feedbackSpiral',
   readonly GraphPresetId[]
 >;
 
@@ -192,6 +199,58 @@ function createBeatColorGraph(): GraphDocument {
         'beat-display',
         'source',
       ),
+    ],
+  );
+}
+
+function createSpiralFeedbackLabGraph(): GraphDocument {
+  return graph(
+    [
+      createGraphNode('time', { x: -720, y: -280 }, {}, 'spiral-lab-time'),
+      createGraphNode(
+        'cells',
+        { x: -450, y: -180 },
+        { scale: 9.2, speed: -0.14, contrast: 2.3 },
+        'spiral-lab-cells',
+      ),
+      createGraphNode(
+        'xyPad',
+        { x: -450, y: 150 },
+        { x: 0.46, y: 0.54 },
+        'spiral-lab-center',
+      ),
+      createGraphNode(
+        'feedbackSpiral',
+        { x: -120, y: -100 },
+        {
+          feedback: 0.82,
+          rotation: 42,
+          zoom: 1.16,
+          centerX: 0.46,
+          centerY: 0.54,
+        },
+        'spiral-lab-feedback',
+      ),
+      createGraphNode(
+        'colorGrade',
+        { x: 220, y: -100 },
+        { hue: 0.08, exposure: 0.08, contrast: 1.24, saturation: 1.55 },
+        'spiral-lab-grade',
+      ),
+      createGraphNode(
+        'display',
+        { x: 520, y: -100 },
+        {},
+        'spiral-lab-display',
+      ),
+    ],
+    [
+      edge('spiral-lab-time-cells', 'spiral-lab-time', 'value', 'spiral-lab-cells', 'time'),
+      edge('spiral-lab-cells-feedback', 'spiral-lab-cells', 'frame', 'spiral-lab-feedback', 'source'),
+      edge('spiral-lab-center-x', 'spiral-lab-center', 'x', 'spiral-lab-feedback', 'centerX'),
+      edge('spiral-lab-center-y', 'spiral-lab-center', 'y', 'spiral-lab-feedback', 'centerY'),
+      edge('spiral-lab-feedback-grade', 'spiral-lab-feedback', 'frame', 'spiral-lab-grade', 'source'),
+      edge('spiral-lab-grade-display', 'spiral-lab-grade', 'frame', 'spiral-lab-display', 'source'),
     ],
   );
 }
@@ -889,6 +948,7 @@ const PRESET_FACTORIES: Readonly<
   blank: createBlankGraph,
   'full-studio': createDefaultGraph,
   'beat-color': createBeatColorGraph,
+  'spiral-feedback-lab': createSpiralFeedbackLabGraph,
   'two-world-mixer': createTwoWorldMixerGraph,
   'control-math': createControlMathGraph,
   'smooth-pointer': createSmoothPointerGraph,

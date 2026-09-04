@@ -52,7 +52,7 @@ export const OPERATOR_CATEGORIES = [
   {
     id: 'image-processing',
     label: 'Image Processing',
-    summary: 'Transform, distort, filter, and grade frames.',
+    summary: 'Transform, distort, filter, retain, and grade frames.',
     icon: Focus,
   },
   {

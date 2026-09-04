@@ -13,7 +13,7 @@ import {
 
 describe('graph presets', () => {
   it('provides unique, discoverable preset metadata', () => {
-    expect(GRAPH_PRESETS).toHaveLength(14);
+    expect(GRAPH_PRESETS).toHaveLength(15);
     expect(new Set(GRAPH_PRESETS.map(({ id }) => id)).size).toBe(
       GRAPH_PRESETS.length,
     );
@@ -238,6 +238,51 @@ describe('graph presets', () => {
         target: { nodeId: 'mixer-blend', portId: 'mix' },
       }),
     );
+  });
+
+  it('builds a bounded, movable spiral feedback lesson ending at Display', () => {
+    const document = createGraphPreset('spiral-feedback-lab');
+    const compiled = compileGraph(document);
+    const spiral = document.nodes.find(
+      ({ id }) => id === 'spiral-lab-feedback',
+    );
+
+    expect(spiral).toMatchObject({
+      kind: 'feedbackSpiral',
+      params: {
+        feedback: 0.82,
+        rotation: 42,
+        zoom: 1.16,
+        centerX: 0.46,
+        centerY: 0.54,
+      },
+    });
+    expect(document.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: { nodeId: 'spiral-lab-cells', portId: 'frame' },
+          target: { nodeId: 'spiral-lab-feedback', portId: 'source' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'spiral-lab-center', portId: 'x' },
+          target: { nodeId: 'spiral-lab-feedback', portId: 'centerX' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'spiral-lab-center', portId: 'y' },
+          target: { nodeId: 'spiral-lab-feedback', portId: 'centerY' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'spiral-lab-feedback', portId: 'frame' },
+          target: { nodeId: 'spiral-lab-grade', portId: 'source' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'spiral-lab-grade', portId: 'frame' },
+          target: { nodeId: 'spiral-lab-display', portId: 'source' },
+        }),
+      ]),
+    );
+    expect(compiled.displayNodes).toHaveLength(1);
+    expect(compiled.reachableNodeIds.size).toBe(document.nodes.length);
   });
 
   it('returns a fresh graph for every selection', () => {

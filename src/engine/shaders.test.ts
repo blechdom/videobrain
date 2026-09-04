@@ -39,6 +39,30 @@ describe('frame shader alpha contracts', () => {
     expect(trails).toContain('outColor = vec4(clamp(color, 0.0, 1.0), alpha);');
   });
 
+  it('rotates aspect-correct Spiral Feedback history and composites straight alpha safely', () => {
+    const spiral = shaderFor('feedbackSpiral');
+
+    expect(spiral).toContain('position.x *= aspect;');
+    expect(spiral).toContain('-sine * position.x + cosine * position.y');
+    expect(spiral).toContain('/ max(uZoomStep, 0.0001)');
+    expect(spiral).toContain('position.x /= aspect;');
+    expect(spiral).toContain(
+      'all(greaterThanEqual(previousUv, vec2(0.0)))',
+    );
+    expect(spiral).toContain('previous.rgb * retainedAlpha');
+    expect(spiral).toContain('current.rgb * currentAlpha');
+    expect(spiral).toContain('premultiplied / alpha');
+  });
+
+  it('seeds Spiral Feedback from its source and freezes history at zero elapsed time', () => {
+    const spiral = shaderFor('feedbackSpiral');
+
+    expect(spiral).toContain('if (uHistoryReady < 0.5)');
+    expect(spiral).toContain('outColor = current;');
+    expect(spiral).toContain('if (uDeltaTime <= 0.0)');
+    expect(spiral).toContain('outColor = texture(uPrevious, vUv);');
+  });
+
   it('uses premultiplied interpolation for every Blend mode', () => {
     const blend = shaderFor('blend');
 

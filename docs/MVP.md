@@ -63,7 +63,7 @@ The built-in **Signal Graph** is attractive without media permissions or network
 - Infinite graph canvas with pan and zoom.
 - Select, move, connect, disconnect, create, duplicate, and delete.
 - Searchable node palette.
-- Accessible New patch menu with Blank Canvas and thirteen validated starter graphs.
+- Accessible New patch menu with Blank Canvas and fourteen validated starter graphs.
 - Custom node cards with category, name, typed ports, reachability state, and always-visible parameter controls.
 - Inspector with parameter sliders and operator details.
 - Distinct visual treatment for `frame.rgba`, `control.f32`, and `text.utf8` connections.
@@ -79,6 +79,8 @@ The built-in **Signal Graph** is attractive without media permissions or network
 - Mask, two-input Blend, Porter-Duff Composite, and four-input Frame Switch
   compositing/routing processors.
 - Trails with internally managed previous-frame state.
+- Spiral Feedback with bounded per-second retention plus rotation, zoom, and
+  center controls applied to its internally retained prior output.
 - Display output.
 
 ### Implemented control nodes
@@ -111,7 +113,8 @@ See [Model Connectors](MODEL_CONNECTORS.md) for the current wire contract and ad
 - Uploaded image/video, screen capture, crop/fit, resize, levels, channel
   shuffle, luma/chroma key, displacement, shape, gradient, and text processors.
 - Compare, trigger, vector, envelope, and sample-and-hold controls.
-- A general-purpose Delay node beyond the retained state inside Trails.
+- A general-purpose Delay node beyond the specialized retained state inside
+  Trails and Spiral Feedback.
 - Audio Device In, file playback, FFT/band analysis, and an explicit feedback-safe Audio Output/Monitor path.
 
 ### Runtime
@@ -182,6 +185,8 @@ The POC is complete when all of the following are demonstrable in a production b
   one bundled starter where the node is reachable from Display.
 - Solid Color, Threshold, Mask, Composite, Frame Switch, and Blur each appear
   in a bundled teaching starter where the node is reachable from Display.
+- Spiral Feedback appears in a bundled lesson where its animated source,
+  movable center, color treatment, and Display output are all reachable.
 - Adding, removing, and rewiring supported nodes changes the output correctly.
 - At least one periodic control visibly modulates a transform parameter.
 - Beat Clock phase drives a downstream oscillator, and Pointer exposes position, held, press, and release values.
@@ -208,7 +213,12 @@ Make the renderer the sole owner of GPU objects and dispose resources when a pla
 
 ### Feedback creates unstable cycles
 
-Reject all ordinary cycles. Permit retained state only through the Delay contract with separate read and commit phases and a deterministic reset.
+Reject all ordinary cycles. Trails and Spiral Feedback retain prior frames only
+inside their renderer-owned state; Spiral Feedback bounds saved retention below
+1 and interprets it per elapsed visual second. Pause must not advance that
+state, while reset or rewind deterministically discards and seeds it again from
+the current source. A future general Delay still needs an explicit read/commit
+contract rather than exposing unrestricted cycles.
 
 ### Browser suspension causes large time jumps
 

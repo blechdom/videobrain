@@ -246,3 +246,14 @@ export const AudioSoftFocusExample: Story = {
     },
   },
 };
+
+export const SpiralFeedbackLabExample: Story = {
+  args: { presetId: 'spiral-feedback-lab' },
+  parameters: {
+    docs: {
+      description: {
+        story: 'A moving Cells frame feeds Spiral Feedback, where the retained prior output is rotated and zoomed before it is blended with the live source. XY Pad moves the center, Feedback stays bounded below full retention, and returning to frame zero deterministically discards and re-seeds the history.',
+      },
+    },
+  },
+};

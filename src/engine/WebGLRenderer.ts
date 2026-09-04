@@ -51,6 +51,7 @@ interface NodeResources {
   kind: NodeKind;
   targets: RenderTarget[];
   nextTargetIndex: number;
+  lastCommitTime: number | null;
 }
 
 interface ProgramInfo {
@@ -68,6 +69,8 @@ interface SmoothControlState {
   value: number;
   time: number;
 }
+
+type FrameStateCommit = () => void;
 
 const DEFAULT_POINTER: RenderPointer = Object.freeze({
   x: 0.5,
@@ -559,13 +562,20 @@ export class WebGLRenderer {
       if (this.plan.frameNodes.some(({ node }) => node.kind === 'videoInput')) {
         this.uploadVideoFrame();
       }
+      const frameStateCommits: FrameStateCommit[] = [];
       for (const node of this.plan.frameNodes) {
-        this.renderFrameNode(node, time);
+        const commit = this.renderFrameNode(node, time);
+        if (commit) {
+          frameStateCommits.push(commit);
+        }
       }
       const displayNode =
         this.plan.displayNodes.find((node) => node.inputs.source !== undefined) ??
         this.plan.displayNodes[0];
       this.renderDisplayNode(displayNode);
+      for (const commit of frameStateCommits) {
+        commit();
+      }
       this.lastPassCount = this.plan.visualPasses;
       this.errorState = null;
       this.frameCount += 1;
@@ -597,6 +607,7 @@ export class WebGLRenderer {
     this.outputTextures.clear();
     for (const resources of this.nodeResources.values()) {
       resources.nextTargetIndex = 0;
+      resources.lastCommitTime = null;
       for (const target of resources.targets) {
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target.framebuffer);
         this.gl.viewport(0, 0, target.width, target.height);
@@ -1024,6 +1035,7 @@ export class WebGLRenderer {
           kind: node.kind,
           targets: [],
           nextTargetIndex: 0,
+          lastCommitTime: null,
         };
         created.push(resources);
         for (let index = 0; index < targetCount; index += 1) {
@@ -1301,12 +1313,118 @@ export class WebGLRenderer {
     }
   }
 
-  private renderFrameNode(compiledNode: CompiledNode, time: number): void {
+  private renderFrameNode(
+    compiledNode: CompiledNode,
+    time: number,
+  ): FrameStateCommit | null {
     const resources = this.nodeResources.get(compiledNode.node.id);
     if (!resources || resources.targets.length === 0) {
       throw new RendererError(
         `No offscreen frame exists for node "${compiledNode.node.id}".`,
       );
+    }
+
+    if (compiledNode.node.kind === 'feedbackSpiral') {
+      const writeTarget = resources.targets[resources.nextTargetIndex];
+      const previousTarget = resources.targets[1 - resources.nextTargetIndex];
+      if (!writeTarget || !previousTarget) {
+        throw new RendererError(
+          'The Spiral Feedback node requires two frame buffers.',
+        );
+      }
+
+      const previousTime = resources.lastCommitTime;
+      const historyReady = previousTime !== null && time >= previousTime;
+      const elapsed = historyReady ? time - previousTime : 0;
+      const feedback = clamp(
+        this.controlInput(
+          compiledNode,
+          'feedback',
+          this.numberParam(compiledNode, 'feedback'),
+        ),
+        0,
+        0.99,
+      );
+      const rotation = clamp(
+        this.controlInput(
+          compiledNode,
+          'rotation',
+          this.numberParam(compiledNode, 'rotation'),
+        ),
+        -360,
+        360,
+      );
+      const zoom = clamp(
+        this.controlInput(
+          compiledNode,
+          'zoom',
+          this.numberParam(compiledNode, 'zoom'),
+        ),
+        0.5,
+        2,
+      );
+      const poweredZoom = Math.pow(zoom, elapsed);
+      const zoomStep = clamp(
+        finiteOr(poweredZoom, zoom >= 1 ? 10_000 : 0.0001),
+        0.0001,
+        10_000,
+      );
+      const rotationDegrees = finiteOr((rotation * elapsed) % 360, 0);
+      const program = this.beginPass('feedbackSpiral', writeTarget);
+      this.bindTexture(
+        program,
+        'uSource',
+        this.frameInput(compiledNode, 'source'),
+        0,
+      );
+      this.bindTexture(program, 'uPrevious', previousTarget.texture, 1);
+      this.uniform2f(
+        program,
+        'uCenter',
+        clamp(
+          this.controlInput(
+            compiledNode,
+            'centerX',
+            this.numberParam(compiledNode, 'centerX'),
+          ),
+          0,
+          1,
+        ),
+        clamp(
+          this.controlInput(
+            compiledNode,
+            'centerY',
+            this.numberParam(compiledNode, 'centerY'),
+          ),
+          0,
+          1,
+        ),
+      );
+      this.uniform1f(
+        program,
+        'uRotationStep',
+        (rotationDegrees * Math.PI) / 180,
+      );
+      this.uniform1f(program, 'uZoomStep', zoomStep);
+      const retention = !historyReady
+        ? 0
+        : elapsed === 0
+          ? 1
+          : feedback === 0
+            ? 0
+            : Math.pow(feedback, elapsed);
+      this.uniform1f(program, 'uRetention', retention);
+      this.uniform1f(program, 'uDeltaTime', elapsed);
+      this.uniform1f(program, 'uHistoryReady', historyReady ? 1 : 0);
+      this.draw(program);
+      this.outputTextures.set(compiledNode.node.id, writeTarget.texture);
+      if (historyReady && elapsed === 0) {
+        return null;
+      }
+      return () => {
+        resources.nextTargetIndex = 1 - resources.nextTargetIndex;
+        resources.lastCommitTime = time;
+      };
     }
 
     if (compiledNode.node.kind === 'trails') {
@@ -1338,8 +1456,9 @@ export class WebGLRenderer {
       );
       this.draw(program);
       this.outputTextures.set(compiledNode.node.id, writeTarget.texture);
-      resources.nextTargetIndex = 1 - resources.nextTargetIndex;
-      return;
+      return () => {
+        resources.nextTargetIndex = 1 - resources.nextTargetIndex;
+      };
     }
 
     const target = resources.targets[0];
@@ -1856,6 +1975,7 @@ export class WebGLRenderer {
 
     this.draw(program);
     this.outputTextures.set(compiledNode.node.id, target.texture);
+    return null;
   }
 
   private renderDisplayNode(compiledNode: CompiledNode | undefined): void {

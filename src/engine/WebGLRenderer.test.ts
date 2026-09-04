@@ -21,6 +21,7 @@ interface FakeWebGLContext {
   clearColor: Mock;
   createTexture: Mock;
   deleteTexture: Mock;
+  drawArrays: Mock;
   pixelStorei: Mock;
   texImage2D: Mock;
   uniform1f: Mock;
@@ -40,6 +41,7 @@ function createFakeWebGLContext(): FakeWebGLContext {
   const uniform1f = vi.fn();
   const uniform2f = vi.fn();
   const uniform4f = vi.fn();
+  const drawArrays = vi.fn();
   const gl = {
     DEPTH_TEST: 0x0b71,
     CULL_FACE: 0x0b44,
@@ -107,7 +109,7 @@ function createFakeWebGLContext(): FakeWebGLContext {
     uniform2f,
     uniform4f,
     activeTexture: vi.fn(),
-    drawArrays: vi.fn(),
+    drawArrays,
   } as unknown as WebGL2RenderingContext;
   return {
     gl,
@@ -115,6 +117,7 @@ function createFakeWebGLContext(): FakeWebGLContext {
     clearColor,
     createTexture,
     deleteTexture,
+    drawArrays,
     pixelStorei,
     texImage2D,
     uniform1f,
@@ -361,6 +364,44 @@ function createTransform2dGraph(): GraphDocument {
   };
 }
 
+function createFeedbackSpiralGraph(connectSource = true): GraphDocument {
+  return {
+    schemaVersion: GRAPH_SCHEMA_VERSION,
+    nodes: [
+      createGraphNode('plasma', { x: 0, y: 0 }, {}, 'spiral-source'),
+      createGraphNode(
+        'feedbackSpiral',
+        { x: 250, y: 0 },
+        {
+          feedback: 0.64,
+          rotation: 60,
+          zoom: 1.21,
+          centerX: 0.25,
+          centerY: 0.75,
+        },
+        'spiral',
+      ),
+      createGraphNode('display', { x: 500, y: 0 }, {}, 'spiral-display'),
+    ],
+    edges: [
+      ...(connectSource
+        ? [
+            {
+              id: 'spiral-source-feedback',
+              source: { nodeId: 'spiral-source', portId: 'frame' },
+              target: { nodeId: 'spiral', portId: 'source' },
+            },
+          ]
+        : []),
+      {
+        id: 'spiral-feedback-display',
+        source: { nodeId: 'spiral', portId: 'frame' },
+        target: { nodeId: 'spiral-display', portId: 'source' },
+      },
+    ],
+  };
+}
+
 function createCompositingGraph(): GraphDocument {
   return {
     schemaVersion: GRAPH_SCHEMA_VERSION,
@@ -523,6 +564,7 @@ function createRendererHarness(): {
   createTexture: Mock;
   gl: WebGL2RenderingContext;
   deleteTexture: Mock;
+  drawArrays: Mock;
   pixelStorei: Mock;
   renderer: WebGLRenderer;
   texImage2D: Mock;
@@ -537,6 +579,7 @@ function createRendererHarness(): {
     clearColor,
     createTexture,
     deleteTexture,
+    drawArrays,
     pixelStorei,
     texImage2D,
     uniform1f,
@@ -561,6 +604,7 @@ function createRendererHarness(): {
     createTexture,
     gl,
     deleteTexture,
+    drawArrays,
     pixelStorei,
     renderer,
     texImage2D,
@@ -1101,6 +1145,163 @@ describe('frame-node evaluation', () => {
     expect(lastUniformValue(uniform1f, 'uRotation')).toBeCloseTo(Math.PI / 2);
     expect(wroteUniform2f(uniform2f, 'uPivot', 0.2, 0.8)).toBe(true);
     expect(wroteUniform(uniform1f, 'uEdgeMode', 3)).toBe(true);
+    renderer.dispose();
+  });
+
+  it('advances Spiral Feedback from elapsed visual time and freezes at zero delta', () => {
+    const { bindTexture, renderer, uniform1f, uniform2f } =
+      createRendererHarness();
+    renderer.setGraph(createFeedbackSpiralGraph());
+    bindTexture.mockClear();
+    uniform1f.mockClear();
+    uniform2f.mockClear();
+
+    expect(renderer.render(0)).toMatchObject({ rendered: true, passCount: 3 });
+    expect(wroteUniform(uniform1f, 'uHistoryReady', 0)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uDeltaTime', 0)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uRetention', 0)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uRotationStep', 0)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uZoomStep', 1)).toBe(true);
+    expect(wroteUniform2f(uniform2f, 'uCenter', 0.25, 0.75)).toBe(true);
+
+    bindTexture.mockClear();
+    uniform1f.mockClear();
+    expect(renderer.render(0.5)).toMatchObject({ rendered: true });
+    expect(wroteUniform(uniform1f, 'uHistoryReady', 1)).toBe(true);
+    expect(lastUniformValue(uniform1f, 'uDeltaTime')).toBe(0.5);
+    expect(lastUniformValue(uniform1f, 'uRetention')).toBeCloseTo(0.8);
+    expect(lastUniformValue(uniform1f, 'uRotationStep')).toBeCloseTo(
+      Math.PI / 6,
+    );
+    expect(lastUniformValue(uniform1f, 'uZoomStep')).toBeCloseTo(1.1);
+
+    bindTexture.mockClear();
+    uniform1f.mockClear();
+    expect(renderer.render(0.5)).toMatchObject({ rendered: true });
+    const pausedPreviousTexture = bindTexture.mock.calls[1]?.[1] as unknown;
+    expect(pausedPreviousTexture).toBeDefined();
+    expect(lastUniformValue(uniform1f, 'uDeltaTime')).toBe(0);
+    expect(lastUniformValue(uniform1f, 'uRetention')).toBe(1);
+    expect(lastUniformValue(uniform1f, 'uRotationStep')).toBe(0);
+    expect(lastUniformValue(uniform1f, 'uZoomStep')).toBe(1);
+
+    bindTexture.mockClear();
+    uniform1f.mockClear();
+    expect(renderer.render(1)).toMatchObject({ rendered: true });
+    expect(bindTexture.mock.calls[1]?.[1]).toBe(pausedPreviousTexture);
+    expect(lastUniformValue(uniform1f, 'uDeltaTime')).toBe(0.5);
+    expect(lastUniformValue(uniform1f, 'uRetention')).toBeCloseTo(0.8);
+
+    uniform1f.mockClear();
+    expect(renderer.render(0.25)).toMatchObject({ rendered: true });
+    expect(wroteUniform(uniform1f, 'uHistoryReady', 0)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uRetention', 0)).toBe(true);
+    renderer.dispose();
+  });
+
+  it('commits Spiral Feedback history only after the complete frame succeeds', () => {
+    const { bindTexture, drawArrays, renderer, uniform1f } =
+      createRendererHarness();
+    renderer.setGraph(createFeedbackSpiralGraph());
+    expect(renderer.render(0)).toMatchObject({ rendered: true });
+
+    bindTexture.mockClear();
+    let drawIndex = 0;
+    drawArrays.mockImplementation(() => {
+      drawIndex += 1;
+      if (drawIndex === 3) {
+        throw new Error('Display draw failed');
+      }
+    });
+    expect(renderer.render(1)).toMatchObject({ rendered: false });
+    const committedPreviousTexture = bindTexture.mock.calls[1]?.[1] as unknown;
+    expect(committedPreviousTexture).toBeDefined();
+
+    bindTexture.mockClear();
+    uniform1f.mockClear();
+    drawArrays.mockReset();
+    expect(renderer.render(2)).toMatchObject({ rendered: true });
+    expect(bindTexture.mock.calls[1]?.[1]).toBe(committedPreviousTexture);
+    expect(lastUniformValue(uniform1f, 'uDeltaTime')).toBe(2);
+    expect(lastUniformValue(uniform1f, 'uRetention')).toBeCloseTo(0.64 ** 2);
+    renderer.dispose();
+  });
+
+  it('keeps zero feedback frozen at zero delta and clears it once time advances', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    const graph = createFeedbackSpiralGraph();
+    renderer.setGraph(graph);
+    expect(renderer.render(0)).toMatchObject({ rendered: true });
+
+    const spiral = graph.nodes.find(({ id }) => id === 'spiral');
+    expect(spiral).toBeDefined();
+    if (!spiral) {
+      throw new Error('The Spiral Feedback fixture is missing.');
+    }
+    spiral.params.feedback = 0;
+    renderer.setGraph(graph);
+
+    uniform1f.mockClear();
+    expect(renderer.render(0)).toMatchObject({ rendered: true });
+    expect(wroteUniform(uniform1f, 'uHistoryReady', 1)).toBe(true);
+    expect(lastUniformValue(uniform1f, 'uRetention')).toBe(1);
+
+    uniform1f.mockClear();
+    expect(renderer.render(1)).toMatchObject({ rendered: true });
+    expect(lastUniformValue(uniform1f, 'uRetention')).toBe(0);
+    renderer.dispose();
+  });
+
+  it('resets Spiral Feedback after reset or an inactive interval', () => {
+    const { canvas, renderer, uniform1f } = createRendererHarness();
+    const active = createFeedbackSpiralGraph();
+    renderer.setGraph(active);
+    expect(renderer.render(0)).toMatchObject({ rendered: true });
+
+    renderer.reset();
+    uniform1f.mockClear();
+    expect(renderer.render(5)).toMatchObject({ rendered: true });
+    expect(wroteUniform(uniform1f, 'uHistoryReady', 0)).toBe(true);
+
+    const inactive = cloneGraphDocument(active);
+    inactive.edges = inactive.edges.filter(
+      ({ id }) => id !== 'spiral-feedback-display',
+    );
+    renderer.setGraph(inactive);
+    expect(renderer.render(6)).toMatchObject({ rendered: true, passCount: 1 });
+
+    renderer.setGraph(active);
+    uniform1f.mockClear();
+    expect(renderer.render(7)).toMatchObject({ rendered: true });
+    expect(wroteUniform(uniform1f, 'uHistoryReady', 0)).toBe(true);
+
+    renderer.resize(320, 180, 1);
+    uniform1f.mockClear();
+    expect(renderer.render(8)).toMatchObject({ rendered: true });
+    expect(wroteUniform(uniform1f, 'uHistoryReady', 0)).toBe(true);
+
+    canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }));
+    canvas.dispatchEvent(new Event('webglcontextrestored'));
+    uniform1f.mockClear();
+    expect(renderer.render(9)).toMatchObject({ rendered: true });
+    expect(wroteUniform(uniform1f, 'uHistoryReady', 0)).toBe(true);
+    renderer.dispose();
+  });
+
+  it('decays retained Spiral Feedback over the standard black source fallback', () => {
+    const { bindTexture, createTexture, renderer, uniform1f } =
+      createRendererHarness();
+    renderer.setGraph(createFeedbackSpiralGraph());
+    expect(renderer.render(0)).toMatchObject({ rendered: true });
+
+    renderer.setGraph(createFeedbackSpiralGraph(false));
+    bindTexture.mockClear();
+    uniform1f.mockClear();
+    expect(renderer.render(1)).toMatchObject({ rendered: true, passCount: 2 });
+    const blackTexture = createTexture.mock.results[0]?.value as unknown;
+    expect(bindTexture.mock.calls[0]?.[1]).toBe(blackTexture);
+    expect(wroteUniform(uniform1f, 'uHistoryReady', 1)).toBe(true);
+    expect(lastUniformValue(uniform1f, 'uRetention')).toBeCloseTo(0.64);
     renderer.dispose();
   });
 

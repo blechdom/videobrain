@@ -88,5 +88,10 @@ describe('OperatorLibrary', () => {
     expect(screen.getByRole('button', { name: 'Image Processing' })).toBeVisible();
     expect(screen.getByTitle('Add Threshold')).toBeVisible();
     expect(screen.queryByTitle('Add Blur')).not.toBeInTheDocument();
+
+    await user.clear(search);
+    await user.type(search, 'spiral');
+    expect(screen.getByRole('button', { name: 'Image Processing' })).toBeVisible();
+    expect(screen.getByTitle('Add Spiral Feedback')).toBeVisible();
   });
 });

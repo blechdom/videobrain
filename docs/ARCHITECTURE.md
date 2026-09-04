@@ -209,14 +209,36 @@ The POC evaluates every reachable frame node once per scheduled visual tick. Mod
 
 ### Feedback and retained state
 
-An ordinary cycle is invalid. A stateful processor is the explicit boundary for feedback. The POC's Trails processor owns this state internally; a future general Delay node follows the same contract:
+An ordinary cycle is invalid. Trails and Spiral Feedback are the POC's explicit,
+internally stateful frame processors; neither exposes an edge that bypasses
+cycle rejection. A future general Delay node still needs a broader public
+read/commit, routing, initialization, and seek contract.
 
-- its read phase returns the texture retained from the prior tick;
-- downstream nodes evaluate using that stable texture;
-- its commit phase stores the current target result for the next tick;
-- reset clears both buffers to the configured initial state.
+Both current effects use two transparent-initialized textures. Their read phase
+samples only the output retained from the prior successful tick, and their
+commit is deferred until every reachable frame node and Display complete. Only
+then does the renderer swap buffer roles. A failed or cancelled tick therefore
+cannot expose or retain a partially written state.
 
-The GPU implementation uses two textures and swaps their roles after a successful tick. A failed or cancelled tick must not expose a partially written state.
+Spiral Feedback makes the detailed clock contract explicit:
+
+- its first successful active evaluation outputs the current source exactly and
+  commits that source, so transparent allocation does not create a visible
+  pre-roll frame;
+- on an advancing visual tick, it rotates and zooms the retained output around
+  the resolved center, then blends in the current source;
+- Feedback is bounded to `0…0.99` and specifies the retained fraction after one
+  elapsed visual second; Rotation uses degrees per second and Zoom a multiplier
+  per second, so none of the three assumes a fixed display rate;
+- a zero-elapsed render displays the retained output without advancing its
+  history index or timestamp;
+- reset, backward visual time, resize, context restoration, and reactivation
+  after being inactive all make the next successful render seed exactly from
+  its then-current source;
+- retaining the same active node ID and kind across ordinary parameter or edge
+  edits preserves history, while full deactivation releases it. Removing only
+  the source edge uses the standard opaque-black fallback as new input, so old
+  content decays over black while visual time advances.
 
 Every retained-state node must eventually declare its initial value, owning
 clock, pause behavior, reset/seek behavior, and whether a disconnected or
@@ -260,8 +282,9 @@ The POC renderer owns:
 - presentation and runtime diagnostics.
 
 The current frame set includes procedural and solid producers; transform, warp,
-blur, threshold, mask, blend, Porter-Duff composite, color-grade, and retained
-trail processors; a four-input frame switch; camera/model producers; and Display.
+blur, threshold, mask, blend, Porter-Duff composite, color-grade, retained-trail,
+and spiral-feedback processors; a four-input frame switch; camera/model
+producers; and Display.
 Threshold intentionally produces a visible frame, while Mask is the explicit
 step that applies a selected channel to source alpha.
 
