@@ -19,6 +19,7 @@ describe('HelpDialog', () => {
     expect(screen.getByText('Transform Playground')).toBeVisible();
     expect(screen.getByText('Mask & Composite Lab')).toBeVisible();
     expect(screen.getByText('Beat Switcher')).toBeVisible();
+    expect(screen.getByText('Live Cut Lab')).toBeVisible();
     expect(screen.getByText('Audio Soft Focus')).toBeVisible();
     expect(screen.getByText('Spiral Feedback Lab')).toBeVisible();
     expect(screen.getByText(/every current node appears on a reachable branch/)).toBeVisible();
@@ -31,6 +32,8 @@ describe('HelpDialog', () => {
     expect(screen.getByText('Solid Color')).toBeVisible();
     expect(screen.getByText('Frame Switch')).toBeVisible();
     expect(screen.getByText('Spiral Feedback')).toBeVisible();
+    expect(screen.getByText('Auto Selector')).toBeVisible();
+    expect(screen.getByText('Strobe', { exact: true })).toBeVisible();
     expect(
       screen.getByText('Rotates and zooms retained history into a spiralling frame.'),
     ).toBeVisible();
@@ -41,9 +44,37 @@ describe('HelpDialog', () => {
     expect(screen.getByText('Control arithmetic and mapping')).toBeVisible();
     expect(screen.getByText('Smoothed pointer motion')).toBeVisible();
     expect(screen.getByText('Two-dimensional transform controls')).toBeVisible();
-    expect(screen.getByText('Fourteen patches to try')).toBeVisible();
+    expect(screen.getByText('Fifteen patches to try')).toBeVisible();
     expect(screen.getByText('Mask and composite fundamentals')).toBeVisible();
     expect(screen.getByText('Tempo-locked source switching')).toBeVisible();
+    expect(
+      screen.getByText('Automatic live cuts (flashing imagery)'),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/seeded shuffle bag visits all four sources/),
+    ).toBeVisible();
+    expect(screen.getByText(/Photosensitivity warning:/)).toBeVisible();
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === 'P' &&
+          element.textContent
+            ?.replace(/\s+/g, ' ')
+            .includes('connected Phase signal overrides Rate') === true,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/limit does not make flashing upstream media safe/),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === 'P' &&
+          element.textContent
+            ?.replace(/\s+/g, ' ')
+            .includes('set Amount to 0') === true,
+      ),
+    ).toBeVisible();
     expect(screen.getByText('Audio-controlled soft focus')).toBeVisible();
     expect(screen.getByText('Audio-reactive trails')).toBeVisible();
     expect(screen.getByText('Spiralling recursive image')).toBeVisible();

@@ -37,7 +37,7 @@ const plannedAreas = [
   {
     title: 'Creation and show control',
     items:
-      'Reusable subgraphs, presets, macro panels, assets, 3D, particles, projection mapping, multi-display, collaboration, and extension packages',
+      'Reusable subgraphs, launch grids, cue and effect scenes, presets, macro panels, assets, 3D, particles, projection mapping, multi-display, collaboration, and extension packages',
   },
 ] as const;
 
@@ -90,6 +90,11 @@ const recipes = [
     title: 'Tempo-locked source switching',
     path: 'Beat Clock Bar → Map Range → Frame Switch Index; four frames → Frame Switch → Display',
     note: 'Open Beat Switcher. Each quarter of the bar selects one source; move Index manually after disconnecting its control wire.',
+  },
+  {
+    title: 'Automatic live cuts (flashing imagery)',
+    path: 'Transport Time → Auto Selector; Index → Frame Switch; Phase → Strobe; four frames → Frame Switch → Strobe → Display',
+    note: 'Open Live Cut Lab. A seeded shuffle bag visits all four sources before reshuffling, while the shared 1.5-second phase drives a partial invert pulse at about 0.67 cycles per second. Replace any source with Video Input and press Start camera inside that node. See the photosensitivity warning below before raising the pulse rate or amount.',
   },
   {
     title: 'Audio-controlled soft focus',
@@ -344,7 +349,7 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
           </section>
 
           <section id="help-recipes" className="help-section">
-            <h2>Fourteen patches to try</h2>
+            <h2>Fifteen patches to try</h2>
             <div className="help-recipe-list">
               {recipes.map((recipe) => (
                 <article key={recipe.title}>
@@ -354,6 +359,17 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
                 </article>
               ))}
             </div>
+            <p className="help-note">
+              <strong>Photosensitivity warning:</strong> Strobe produces flashing
+              or rapidly changing imagery. Its internal <strong>Rate</strong> is
+              hard-capped at 3 Hz, but a connected <strong>Phase</strong> signal
+              overrides Rate and can change faster; keep externally driven phase
+              at or below 3 cycles per second. Live Cut Lab runs at about 0.67
+              cycles per second. This limit does not make flashing upstream media
+              safe. To stop the generated pulse immediately, set{' '}
+              <strong>Amount</strong> to 0, or delete Strobe and reconnect Frame
+              Switch directly to Color Grade.
+            </p>
           </section>
 
           <section id="help-models" className="help-section">

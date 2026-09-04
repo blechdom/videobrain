@@ -3,6 +3,7 @@ export const GRAPH_SCHEMA_VERSION = 1 as const;
 export const NODE_KINDS = [
   'time',
   'beatClock',
+  'autoSelector',
   'oscillator',
   'constant',
   'math',
@@ -27,6 +28,7 @@ export const NODE_KINDS = [
   'blend',
   'trails',
   'feedbackSpiral',
+  'strobe',
   'colorGrade',
   'display',
 ] as const;

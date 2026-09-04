@@ -606,6 +606,48 @@ void main() {
 }
 `;
 
+const strobe = `#version 300 es
+precision highp float;
+
+in vec2 vUv;
+out vec4 outColor;
+
+uniform sampler2D uSource;
+uniform float uPhase;
+uniform float uDuty;
+uniform float uAmount;
+uniform float uClosedMode;
+
+void main() {
+  vec4 source = texture(uSource, vUv);
+  if (uPhase < clamp(uDuty, 0.05, 0.95)) {
+    outColor = source;
+    return;
+  }
+
+  vec4 target;
+  if (uClosedMode < 0.5) {
+    target = vec4(0.0, 0.0, 0.0, 1.0);
+  } else if (uClosedMode < 1.5) {
+    target = vec4(1.0);
+  } else if (uClosedMode < 2.5) {
+    target = vec4(0.0);
+  } else {
+    target = vec4(1.0 - source.rgb, source.a);
+  }
+
+  float amount = clamp(uAmount, 0.0, 1.0);
+  float alpha = mix(source.a, target.a, amount);
+  vec3 premultiplied = mix(
+    source.rgb * source.a,
+    target.rgb * target.a,
+    amount
+  );
+  vec3 color = alpha > 0.00001 ? premultiplied / alpha : vec3(0.0);
+  outColor = vec4(clamp(color, 0.0, 1.0), clamp(alpha, 0.0, 1.0));
+}
+`;
+
 const colorGrade = `#version 300 es
 precision highp float;
 
@@ -667,6 +709,7 @@ export const FRAME_FRAGMENT_SHADERS: Partial<Record<NodeKind, string>> = {
   blend,
   trails,
   feedbackSpiral,
+  strobe,
   colorGrade,
   display,
 };

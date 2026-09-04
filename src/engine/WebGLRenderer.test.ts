@@ -402,6 +402,69 @@ function createFeedbackSpiralGraph(connectSource = true): GraphDocument {
   };
 }
 
+function createStrobeGraph(connectControls = true): GraphDocument {
+  return {
+    schemaVersion: GRAPH_SCHEMA_VERSION,
+    nodes: [
+      ...(connectControls
+        ? [
+            createGraphNode(
+              'constant',
+              { x: 0, y: 0 },
+              { value: -0.25 },
+              'strobe-phase',
+            ),
+            createGraphNode(
+              'constant',
+              { x: 0, y: 120 },
+              { value: 0.72 },
+              'strobe-amount',
+            ),
+          ]
+        : []),
+      createGraphNode('plasma', { x: 0, y: 240 }, {}, 'strobe-source'),
+      createGraphNode(
+        'strobe',
+        { x: 250, y: 120 },
+        {
+          rate: 3,
+          duty: 0.6,
+          amount: 0.35,
+          closedMode: 'invert',
+        },
+        'strobe',
+      ),
+      createGraphNode('display', { x: 500, y: 120 }, {}, 'strobe-display'),
+    ],
+    edges: [
+      {
+        id: 'strobe-source-effect',
+        source: { nodeId: 'strobe-source', portId: 'frame' },
+        target: { nodeId: 'strobe', portId: 'source' },
+      },
+      ...(connectControls
+        ? [
+            {
+              id: 'strobe-phase-effect',
+              source: { nodeId: 'strobe-phase', portId: 'value' },
+              target: { nodeId: 'strobe', portId: 'phase' },
+            },
+            {
+              id: 'strobe-amount-effect',
+              source: { nodeId: 'strobe-amount', portId: 'value' },
+              target: { nodeId: 'strobe', portId: 'amount' },
+            },
+          ]
+        : []),
+      {
+        id: 'strobe-effect-display',
+        source: { nodeId: 'strobe', portId: 'frame' },
+        target: { nodeId: 'strobe-display', portId: 'source' },
+      },
+    ],
+  };
+}
+
 function createCompositingGraph(): GraphDocument {
   return {
     schemaVersion: GRAPH_SCHEMA_VERSION,
@@ -1111,6 +1174,53 @@ describe('control-node evaluation', () => {
     renderer.dispose();
   });
 
+  it('lets a bound position deterministically drive Auto Selector index and phase', () => {
+    const selectorNodes = () => [
+      createGraphNode(
+        'constant',
+        { x: 0, y: 0 },
+        { value: -0.25 },
+        'selector-position',
+      ),
+      createGraphNode(
+        'autoSelector',
+        { x: 120, y: 0 },
+        { interval: 1, count: 4, order: 'forward', seed: 23 },
+        'selector',
+      ),
+    ];
+    const selectorEdges = () => [
+      {
+        id: 'position-selector',
+        source: { nodeId: 'selector-position', portId: 'value' },
+        target: { nodeId: 'selector', portId: 'position' },
+      },
+    ];
+    const { renderer, uniform1f } = createRendererHarness();
+
+    renderer.setGraph(
+      createControlOutputGraph(
+        selectorNodes(),
+        selectorEdges(),
+        { nodeId: 'selector', portId: 'index' },
+      ),
+    );
+    expect(renderer.render(100)).toMatchObject({ rendered: true });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBe(3);
+
+    uniform1f.mockClear();
+    renderer.setGraph(
+      createControlOutputGraph(
+        selectorNodes(),
+        selectorEdges(),
+        { nodeId: 'selector', portId: 'phase' },
+      ),
+    );
+    expect(renderer.render(100)).toMatchObject({ rendered: true });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBe(0.75);
+    renderer.dispose();
+  });
+
   it('routes pointer position, held, press, and release independently', () => {
     const { renderer, uniform1f } = createRendererHarness();
     renderer.setGraph(createPointerControlGraph());
@@ -1302,6 +1412,35 @@ describe('frame-node evaluation', () => {
     expect(bindTexture.mock.calls[0]?.[1]).toBe(blackTexture);
     expect(wroteUniform(uniform1f, 'uHistoryReady', 1)).toBe(true);
     expect(lastUniformValue(uniform1f, 'uRetention')).toBeCloseTo(0.64);
+    renderer.dispose();
+  });
+
+  it('normalizes connected Strobe phase and lets bound amount override its parameter', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    renderer.setGraph(createStrobeGraph());
+
+    expect(renderer.render(100)).toMatchObject({
+      rendered: true,
+      passCount: 3,
+    });
+    expect(lastUniformValue(uniform1f, 'uPhase')).toBe(0.75);
+    expect(lastUniformValue(uniform1f, 'uDuty')).toBe(0.6);
+    expect(lastUniformValue(uniform1f, 'uAmount')).toBe(0.72);
+    expect(lastUniformValue(uniform1f, 'uClosedMode')).toBe(3);
+    renderer.dispose();
+  });
+
+  it('uses the bounded internal Strobe rate with positive negative-time phase', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    renderer.setGraph(createStrobeGraph(false));
+
+    expect(renderer.render(-0.25)).toMatchObject({ rendered: true });
+    expect(lastUniformValue(uniform1f, 'uPhase')).toBe(0.25);
+
+    uniform1f.mockClear();
+    expect(renderer.render(0.75)).toMatchObject({ rendered: true });
+    expect(lastUniformValue(uniform1f, 'uPhase')).toBe(0.25);
+    expect(lastUniformValue(uniform1f, 'uAmount')).toBe(0.35);
     renderer.dispose();
   });
 

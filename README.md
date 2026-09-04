@@ -8,12 +8,13 @@ The proof of concept opens into a working composition and runs locally without a
 
 - Typed `control.f32`, `text.utf8`, and `frame.rgba` connections
 - Demand-rooted graph compilation with cycle rejection
-- Procedural GPU sources, warp, blend, trails, spiral feedback, color grading,
-  and display
+- Procedural GPU sources, warp, blend, trails, spiral feedback, internally
+  rate-capped strobe processing, color grading, and display
 - Solid color, soft thresholding, alpha masks, Porter-Duff compositing,
   four-input frame switching, and control-driven blur
-- Transport/beat clocks, oscillator, pointer position/held/press/release,
-  editable XY pad, and opt-in microphone controls
+- Transport/beat clocks, deterministic automatic source selection, oscillator,
+  pointer position/held/press/release, editable XY pad, and opt-in microphone
+  controls
 - Reusable Constant, Math, Map Range, and Smooth control building blocks
 - Opt-in live camera frames with facing, fit, and mirror controls
 - Transform 2D with translation, scale, rotation, pivot, and edge modes
@@ -23,7 +24,7 @@ The proof of concept opens into a working composition and runs locally without a
   display-synced/60/30 fps monitor pacing
 - Node creation, connection, deletion, movement, and parameter editing
 - Searchable, collapsible node categories backed by the operator registry
-- A New patch menu with Blank Canvas and fourteen complete starter graphs
+- A New patch menu with Blank Canvas and fifteen complete starter graphs
 - Always-visible inline sliders, selects, and XY controls synchronized with the inspector
 - Undo and redo for project edits
 - Versioned local autosave plus JSON import and export
@@ -94,11 +95,12 @@ neither device permission nor a server connection.
 
 Use **New patch** to start from Blank Canvas, Full Studio, Beat-Synced
 Color, Spiral Feedback Lab, Two-World Mixer, Control Math, Smooth Pointer,
-Transform Playground, Mask & Composite Lab, Beat Switcher, Audio Soft Focus,
-Pointer Bend, Mic Pulse Trails, Camera Dream, or Prompted Visual Preview. The graph replacement is
-undoable, but it stops active camera and microphone sessions, closes model
-connections, and clears session-only model keys. Device-based starters remain
-in fallback mode until access is explicitly enabled again.
+Transform Playground, Mask & Composite Lab, Beat Switcher, Live Cut Lab, Audio
+Soft Focus, Pointer Bend, Mic Pulse Trails, Camera Dream, or Prompted Visual
+Preview. The graph replacement is undoable, but it stops active camera and
+microphone sessions, closes model connections, and clears session-only model
+keys. Device-based starters remain in fallback mode until access is explicitly
+enabled again.
 
 ### Teaching examples
 
@@ -109,11 +111,25 @@ in fallback mode until access is explicitly enabled again.
 | Transform Playground | Constant, Map Range, Transform 2D | XY position, automatic rotation, scale, pivot, and edge behavior remain immediately editable. |
 | Mask & Composite Lab | Solid, Threshold, Mask, Composite | An animated matte cuts out a frame before it is layered over a flat background. |
 | Beat Switcher | Frame Switch | Bar phase selects four visibly different frame sources in tempo. |
+| Live Cut Lab | Auto Selector, Strobe | A seeded shuffle bag cuts among four sources while shared phase drives a softened invert pulse. |
 | Audio Soft Focus | Blur | Demo or microphone energy is mapped to a 0–18 pixel blur radius. |
 | Spiral Feedback Lab | Spiral Feedback | The retained prior output rotates and zooms around an XY-controlled center before the live frame is blended in. |
 
 Every teaching node in this set is connected to a reachable graph branch that
 ends at Display; none of these starters contains a disconnected demonstration.
+
+Live Cut Lab is permission-free and uses a 1.5-second interval, or about 0.67
+pulse cycles per second. Auto Selector emits both the selected integer index and
+normalized phase; its seeded shuffle-bag order visits each configured index once
+before reshuffling. Replace any one source with **Video Input · Frame**, then
+press **Start camera** inside Video Input to incorporate live video.
+
+**Photosensitivity warning:** Strobe creates flashing or rapidly changing
+imagery. Its internal Rate is hard-capped at 3 Hz, but a connected Phase input
+overrides Rate and can change faster; keep external phase at or below 3 cycles
+per second. This does not make flashing source footage safe. Set Amount to 0 for
+an immediate visual bypass, or delete Strobe and reconnect its source directly
+to the next processor.
 
 Spiral Feedback is a purpose-built internally stateful image effect, not a
 general graph-delay primitive. Feedback means the fraction retained after one

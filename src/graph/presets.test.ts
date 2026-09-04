@@ -13,7 +13,7 @@ import {
 
 describe('graph presets', () => {
   it('provides unique, discoverable preset metadata', () => {
-    expect(GRAPH_PRESETS).toHaveLength(15);
+    expect(GRAPH_PRESETS).toHaveLength(16);
     expect(new Set(GRAPH_PRESETS.map(({ id }) => id)).size).toBe(
       GRAPH_PRESETS.length,
     );
@@ -158,6 +158,70 @@ describe('graph presets', () => {
       selectedIndex(0.75),
       selectedIndex(0.999),
     ]).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
+  });
+
+  it('teaches deterministic live cuts and phase-bound pulsing below one cycle per second', () => {
+    const document = createGraphPreset('live-cut-lab');
+    const compiled = compileGraph(document);
+    const selector = document.nodes.find(
+      ({ id }) => id === 'live-cut-selector',
+    );
+    const strobe = document.nodes.find(({ id }) => id === 'live-cut-strobe');
+    const switchInputs = document.edges
+      .filter(({ target }) => target.nodeId === 'live-cut-switch')
+      .map(({ target }) => target.portId);
+
+    expect(selector).toMatchObject({
+      kind: 'autoSelector',
+      params: {
+        interval: 1.5,
+        count: 4,
+        order: 'shuffleBag',
+        seed: 23,
+      },
+    });
+    expect(strobe).toMatchObject({
+      kind: 'strobe',
+      params: {
+        duty: 0.82,
+        amount: 0.55,
+        closedMode: 'invert',
+      },
+    });
+    expect(1 / Number(selector?.params.interval)).toBeLessThan(1);
+    expect(switchInputs).toEqual(
+      expect.arrayContaining(['a', 'b', 'c', 'd', 'index']),
+    );
+    expect(document.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: { nodeId: 'live-cut-time', portId: 'value' },
+          target: { nodeId: 'live-cut-selector', portId: 'position' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'live-cut-selector', portId: 'index' },
+          target: { nodeId: 'live-cut-switch', portId: 'index' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'live-cut-selector', portId: 'phase' },
+          target: { nodeId: 'live-cut-strobe', portId: 'phase' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'live-cut-switch', portId: 'frame' },
+          target: { nodeId: 'live-cut-strobe', portId: 'source' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'live-cut-strobe', portId: 'frame' },
+          target: { nodeId: 'live-cut-grade', portId: 'source' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'live-cut-grade', portId: 'frame' },
+          target: { nodeId: 'live-cut-display', portId: 'source' },
+        }),
+      ]),
+    );
+    expect(compiled.displayNodes).toHaveLength(1);
+    expect(compiled.reachableNodeIds.size).toBe(document.nodes.length);
   });
 
   it('maps the audio control fallback to blur radius without an audio frame path', () => {

@@ -59,6 +59,12 @@ export const GRAPH_PRESETS = [
     description: 'Step through four visual sources over each tempo-locked bar.',
   },
   {
+    id: 'live-cut-lab',
+    title: 'Live Cut Lab',
+    description:
+      'Shuffle four sources with a slow Strobe accent (flashing imagery).',
+  },
+  {
     id: 'audio-soft-focus',
     title: 'Audio Soft Focus',
     description: 'Map demo or microphone energy into a clearly visible blur radius.',
@@ -108,6 +114,8 @@ export const NODE_EXAMPLES = {
   frameSwitch: ['beat-switcher'],
   blur: ['audio-soft-focus'],
   feedbackSpiral: ['spiral-feedback-lab'],
+  autoSelector: ['live-cut-lab'],
+  strobe: ['live-cut-lab'],
 } as const satisfies Record<
   | 'constant'
   | 'math'
@@ -120,7 +128,9 @@ export const NODE_EXAMPLES = {
   | 'composite'
   | 'frameSwitch'
   | 'blur'
-  | 'feedbackSpiral',
+  | 'feedbackSpiral'
+  | 'autoSelector'
+  | 'strobe',
   readonly GraphPresetId[]
 >;
 
@@ -635,6 +645,83 @@ function createBeatSwitcherGraph(): GraphDocument {
   );
 }
 
+function createLiveCutLabGraph(): GraphDocument {
+  return graph(
+    [
+      createGraphNode('time', { x: -980, y: -440 }, {}, 'live-cut-time'),
+      createGraphNode(
+        'autoSelector',
+        { x: -700, y: -440 },
+        { interval: 1.5, count: 4, order: 'shuffleBag', seed: 23 },
+        'live-cut-selector',
+      ),
+      createGraphNode(
+        'plasma',
+        { x: -700, y: -170 },
+        { scale: 3.1, speed: 0.22, energy: 0.42, hue: -0.34 },
+        'live-cut-a',
+      ),
+      createGraphNode(
+        'cells',
+        { x: -700, y: 100 },
+        { scale: 5.6, speed: -0.16, contrast: 2.35 },
+        'live-cut-b',
+      ),
+      createGraphNode(
+        'solid',
+        { x: -410, y: -170 },
+        { red: 0.94, green: 0.08, blue: 0.34, alpha: 1 },
+        'live-cut-c',
+      ),
+      createGraphNode(
+        'plasma',
+        { x: -410, y: 100 },
+        { scale: 9.4, speed: -0.31, energy: 0.78, hue: 0.34 },
+        'live-cut-d',
+      ),
+      createGraphNode(
+        'frameSwitch',
+        { x: -90, y: -90 },
+        { index: 0 },
+        'live-cut-switch',
+      ),
+      createGraphNode(
+        'strobe',
+        { x: 230, y: -90 },
+        { rate: 0.67, duty: 0.82, amount: 0.55, closedMode: 'invert' },
+        'live-cut-strobe',
+      ),
+      createGraphNode(
+        'colorGrade',
+        { x: 540, y: -90 },
+        { hue: 0.02, exposure: 0, contrast: 1.12, saturation: 1.3 },
+        'live-cut-grade',
+      ),
+      createGraphNode(
+        'display',
+        { x: 840, y: -90 },
+        {},
+        'live-cut-display',
+      ),
+    ],
+    [
+      edge('live-cut-time-selector', 'live-cut-time', 'value', 'live-cut-selector', 'position'),
+      edge('live-cut-time-a', 'live-cut-time', 'value', 'live-cut-a', 'time'),
+      edge('live-cut-time-b', 'live-cut-time', 'value', 'live-cut-b', 'time'),
+      edge('live-cut-time-d', 'live-cut-time', 'value', 'live-cut-d', 'time'),
+      edge('live-cut-a-switch', 'live-cut-a', 'frame', 'live-cut-switch', 'a'),
+      edge('live-cut-b-switch', 'live-cut-b', 'frame', 'live-cut-switch', 'b'),
+      edge('live-cut-c-switch', 'live-cut-c', 'frame', 'live-cut-switch', 'c'),
+      edge('live-cut-d-switch', 'live-cut-d', 'frame', 'live-cut-switch', 'd'),
+      edge('live-cut-selector-switch', 'live-cut-selector', 'index', 'live-cut-switch', 'index'),
+      edge('live-cut-selector-strobe', 'live-cut-selector', 'phase', 'live-cut-strobe', 'phase'),
+      edge('live-cut-switch-strobe', 'live-cut-switch', 'frame', 'live-cut-strobe', 'source'),
+      edge('live-cut-strobe-grade', 'live-cut-strobe', 'frame', 'live-cut-grade', 'source'),
+      edge('live-cut-grade-display', 'live-cut-grade', 'frame', 'live-cut-display', 'source'),
+    ],
+  );
+}
+
 function createAudioSoftFocusGraph(): GraphDocument {
   return graph(
     [
@@ -955,6 +1042,7 @@ const PRESET_FACTORIES: Readonly<
   'transform-playground': createTransformPlaygroundGraph,
   'mask-composite-lab': createMaskCompositeLabGraph,
   'beat-switcher': createBeatSwitcherGraph,
+  'live-cut-lab': createLiveCutLabGraph,
   'audio-soft-focus': createAudioSoftFocusGraph,
   'pointer-bend': createPointerBendGraph,
   'mic-pulse-trails': createMicPulseTrailsGraph,

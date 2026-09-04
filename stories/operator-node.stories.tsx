@@ -271,6 +271,36 @@ export const SpiralFeedbackNode: Story = {
   },
 };
 
+export const AutoSelectorNode: Story = {
+  args: {
+    kinds: ['autoSelector'],
+    selectedKind: 'autoSelector',
+    compact: true,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'A deterministic timed selector with interval, configured index count, forward/reverse/shuffle-bag order, and seed controls. Index drives a router while Phase can synchronize downstream effects.',
+      },
+    },
+  },
+};
+
+export const StrobeNode: Story = {
+  args: {
+    kinds: ['strobe'],
+    selectedKind: 'strobe',
+    compact: true,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'A flashing-image processor with inline Rate, Open fraction, Amount, and Closed controls. Its internal clock is capped at 3 Hz; an external Phase overrides Rate and must be bounded separately.',
+      },
+    },
+  },
+};
+
 export const InactiveNode: Story = {
   args: {
     kinds: ['warp'],

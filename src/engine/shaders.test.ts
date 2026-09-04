@@ -63,6 +63,19 @@ describe('frame shader alpha contracts', () => {
     expect(spiral).toContain('outColor = texture(uPrevious, vUv);');
   });
 
+  it('mixes every closed Strobe mode in premultiplied form', () => {
+    const strobe = shaderFor('strobe');
+
+    expect(strobe).toContain('if (uPhase < clamp(uDuty, 0.05, 0.95))');
+    expect(strobe).toContain('target = vec4(0.0, 0.0, 0.0, 1.0);');
+    expect(strobe).toContain('target = vec4(1.0);');
+    expect(strobe).toContain('target = vec4(0.0);');
+    expect(strobe).toContain('target = vec4(1.0 - source.rgb, source.a);');
+    expect(strobe).toContain('source.rgb * source.a');
+    expect(strobe).toContain('target.rgb * target.a');
+    expect(strobe).toContain('premultiplied / alpha');
+  });
+
   it('uses premultiplied interpolation for every Blend mode', () => {
     const blend = shaderFor('blend');
 

@@ -16,3 +16,13 @@ export {
   type FramePacingMode,
   type FramePacingOption,
 } from './frameTiming';
+export {
+  evaluateAutoSelector,
+  type AutoSelectorOrder,
+  type AutoSelectorSample,
+} from './autoSelector';
+export {
+  MAX_INTERNAL_STROBE_RATE,
+  evaluateInternalStrobePhase,
+  normalizeStrobePhase,
+} from './strobe';

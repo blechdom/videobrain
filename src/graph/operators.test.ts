@@ -100,6 +100,16 @@ describe('operator registry', () => {
       renderTargets: 2,
       stateful: true,
     });
+    expect(getOperatorExecution('autoSelector')).toEqual({
+      visualPasses: 0,
+      renderTargets: 0,
+      stateful: false,
+    });
+    expect(getOperatorExecution('strobe')).toEqual({
+      visualPasses: 1,
+      renderTargets: 1,
+      stateful: false,
+    });
   });
 
   it('keeps all public signals within the three exact port types', () => {
@@ -132,6 +142,51 @@ describe('operator registry', () => {
       beatsPerBar: 4,
       pulseWidth: 0.12,
       offset: 0,
+    });
+  });
+
+  it('defines deterministic timed switching with bounded selection modes', () => {
+    const definition = OPERATOR_REGISTRY.autoSelector;
+
+    expect(definition).toMatchObject({
+      domain: 'control',
+      category: 'timing',
+      inputs: [
+        {
+          id: 'position',
+          label: 'Position',
+          type: 'control.f32',
+          optional: true,
+        },
+      ],
+      outputs: [
+        {
+          id: 'index',
+          label: 'Index',
+          type: 'control.f32',
+          optional: false,
+        },
+        {
+          id: 'phase',
+          label: 'Phase',
+          type: 'control.f32',
+          optional: false,
+        },
+      ],
+    });
+    expect(getDefaultParams('autoSelector')).toEqual({
+      interval: 1.5,
+      count: 4,
+      order: 'forward',
+      seed: 23,
+    });
+    expect(definition.params.order).toMatchObject({
+      type: 'select',
+      options: [
+        { value: 'forward', label: 'Forward' },
+        { value: 'reverse', label: 'Reverse' },
+        { value: 'shuffleBag', label: 'Shuffle Bag' },
+      ],
     });
   });
 
@@ -366,6 +421,62 @@ describe('operator registry', () => {
       label: 'Center',
       xParamId: 'centerX',
       yParamId: 'centerY',
+    });
+  });
+
+  it('defines a Strobe with a 3 Hz internal-rate cap and selectable closed frames', () => {
+    const definition = OPERATOR_REGISTRY.strobe;
+
+    expect(definition).toMatchObject({
+      domain: 'frame',
+      category: 'image-processing',
+      inputs: [
+        {
+          id: 'source',
+          label: 'Source',
+          type: 'frame.rgba',
+          optional: false,
+        },
+        {
+          id: 'phase',
+          label: 'Phase',
+          type: 'control.f32',
+          optional: true,
+        },
+        {
+          id: 'amount',
+          label: 'Amount',
+          type: 'control.f32',
+          optional: true,
+        },
+      ],
+      outputs: [
+        {
+          id: 'frame',
+          label: 'Frame',
+          type: 'frame.rgba',
+          optional: false,
+        },
+      ],
+    });
+    expect(getDefaultParams('strobe')).toEqual({
+      rate: 1,
+      duty: 0.8,
+      amount: 0.35,
+      closedMode: 'black',
+    });
+    expect(definition.params).toMatchObject({
+      rate: { label: 'Rate (Hz)', min: 0, max: 3 },
+      duty: { label: 'Open fraction', min: 0.05, max: 0.95 },
+      amount: { min: 0, max: 1 },
+      closedMode: {
+        options: [
+          { value: 'black', label: 'Black' },
+          { value: 'white', label: 'White' },
+          { value: 'transparent', label: 'Transparent' },
+          { value: 'invert', label: 'Invert' },
+        ],
+      },
     });
   });
 

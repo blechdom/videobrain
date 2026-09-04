@@ -22,7 +22,7 @@ describe('graph protocol inspection', () => {
     expect(first.protocolVersion).toBe(GRAPH_PROTOCOL_VERSION);
     expect(first.graphSchemaVersion).toBe(GRAPH_SCHEMA_VERSION);
     expect(first.catalogVersion).toBe(OPERATOR_CATALOG_VERSION);
-    expect(first.catalogVersion).toBe(2);
+    expect(first.catalogVersion).toBe(3);
     expect(first.operators.map(({ kind }) => kind)).toEqual(
       OPERATOR_DEFINITIONS.map(({ kind }) => kind),
     );
@@ -67,6 +67,20 @@ describe('graph protocol inspection', () => {
       visualPasses: 1,
       renderTargets: 2,
       stateful: true,
+    });
+    expect(
+      first.operators.find(({ kind }) => kind === 'autoSelector')?.execution,
+    ).toEqual({
+      visualPasses: 0,
+      renderTargets: 0,
+      stateful: false,
+    });
+    expect(
+      first.operators.find(({ kind }) => kind === 'strobe')?.execution,
+    ).toEqual({
+      visualPasses: 1,
+      renderTargets: 1,
+      stateful: false,
     });
     expect(
       first.operators.find(({ kind }) => kind === 'xyPad')?.parameterLayout,
@@ -249,6 +263,46 @@ describe('graph protocol inspection', () => {
         visualPasses: 3,
         renderTargets: 3,
         statefulNodeIds: ['spiral'],
+      },
+    });
+  });
+
+  it('reports selector-driven Strobe as stateless control and frame work', () => {
+    const document: GraphDocument = {
+      schemaVersion: GRAPH_SCHEMA_VERSION,
+      nodes: [
+        createGraphNode('autoSelector', { x: 0, y: 0 }, {}, 'selector'),
+        createGraphNode('solid', { x: 0, y: 160 }, {}, 'source'),
+        createGraphNode('strobe', { x: 200, y: 80 }, {}, 'strobe'),
+        createGraphNode('display', { x: 400, y: 80 }, {}, 'screen'),
+      ],
+      edges: [
+        {
+          id: 'selector-strobe',
+          source: { nodeId: 'selector', portId: 'phase' },
+          target: { nodeId: 'strobe', portId: 'phase' },
+        },
+        {
+          id: 'source-strobe',
+          source: { nodeId: 'source', portId: 'frame' },
+          target: { nodeId: 'strobe', portId: 'source' },
+        },
+        {
+          id: 'strobe-screen',
+          source: { nodeId: 'strobe', portId: 'frame' },
+          target: { nodeId: 'screen', portId: 'source' },
+        },
+      ],
+    };
+
+    expect(inspectGraph(document)).toMatchObject({
+      ok: true,
+      controlOrder: ['selector'],
+      frameOrder: ['source', 'strobe'],
+      resources: {
+        visualPasses: 3,
+        renderTargets: 2,
+        statefulNodeIds: [],
       },
     });
   });

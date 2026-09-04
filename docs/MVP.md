@@ -43,7 +43,7 @@ The application opens directly into a working project. The user can:
 1. see the animated result immediately;
 2. pan, zoom, select, and move nodes;
 3. add a node from a searchable palette;
-4. replace the graph from New patch with Blank Canvas or a complete starter;
+4. replace the graph from New patch with Blank Canvas or one of fifteen complete starters;
 5. connect compatible ports and receive clear feedback for invalid connections;
 6. edit a node from its visible inline controls or the selected-node inspector;
 7. connect a control output to a visual parameter and see it animate;
@@ -63,7 +63,7 @@ The built-in **Signal Graph** is attractive without media permissions or network
 - Infinite graph canvas with pan and zoom.
 - Select, move, connect, disconnect, create, duplicate, and delete.
 - Searchable node palette.
-- Accessible New patch menu with Blank Canvas and fourteen validated starter graphs.
+- Accessible New patch menu with Blank Canvas and fifteen validated starter graphs.
 - Custom node cards with category, name, typed ports, reachability state, and always-visible parameter controls.
 - Inspector with parameter sliders and operator details.
 - Distinct visual treatment for `frame.rgba`, `control.f32`, and `text.utf8` connections.
@@ -81,12 +81,16 @@ The built-in **Signal Graph** is attractive without media permissions or network
 - Trails with internally managed previous-frame state.
 - Spiral Feedback with bounded per-second retention plus rotation, zoom, and
   center controls applied to its internally retained prior output.
+- Strobe with a 0–3 Hz internal clock, externally bindable phase, open fraction,
+  mix amount, and black/white/transparent/invert closed-frame modes.
 - Display output.
 
 ### Implemented control nodes
 
 - Transport Time.
 - Beat Clock with phase, beat pulse, and bar phase outputs.
+- Auto Selector with deterministic interval, count, forward/reverse/seeded
+  shuffle-bag order, plus index and normalized phase outputs.
 - Oscillator with sine, triangle, saw, and square waveforms.
 - Pointer X/Y position plus Held state and one-tick Press/Release pulses.
 - XY Pad with normalized, independently connectable X and Y values.
@@ -187,6 +191,8 @@ The POC is complete when all of the following are demonstrable in a production b
   in a bundled teaching starter where the node is reachable from Display.
 - Spiral Feedback appears in a bundled lesson where its animated source,
   movable center, color treatment, and Display output are all reachable.
+- Auto Selector and Strobe appear in Live Cut Lab, where four permission-free
+  sources, router, phase binding, grade, and Display are all reachable.
 - Adding, removing, and rewiring supported nodes changes the output correctly.
 - At least one periodic control visibly modulates a transform parameter.
 - Beat Clock phase drives a downstream oscillator, and Pointer exposes position, held, press, and release values.
@@ -219,6 +225,15 @@ inside their renderer-owned state; Spiral Feedback bounds saved retention below
 state, while reset or rewind deterministically discards and seeds it again from
 the current source. A future general Delay still needs an explicit read/commit
 contract rather than exposing unrestricted cycles.
+
+### Flashing effects can create a photosensitivity hazard
+
+Strobe's internal Rate is limited to 3 Hz and defaults to a partial effect, but
+an incoming Phase signal overrides that clock and upstream footage may flash on
+its own. Label flashing examples before they load, keep bundled teaching
+material below one cycle per second, document that external phase should stay
+at or below 3 cycles per second, and retain an immediate Amount 0 bypass plus
+ordinary node deletion/rewiring.
 
 ### Browser suspension causes large time jumps
 

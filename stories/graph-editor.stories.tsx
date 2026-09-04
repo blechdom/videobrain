@@ -236,6 +236,17 @@ export const BeatSwitcherExample: Story = {
   },
 };
 
+export const LiveCutLabExample: Story = {
+  args: { presetId: 'live-cut-lab' },
+  parameters: {
+    docs: {
+      description: {
+        story: 'A seeded Auto Selector visits four permission-free sources in shuffle-bag order. Its Index chooses Frame Switch while its 1.5-second Phase drives a softened invert Strobe at about 0.67 cycles per second before Color Grade and Display. This story contains flashing imagery.',
+      },
+    },
+  },
+};
+
 export const AudioSoftFocusExample: Story = {
   args: { presetId: 'audio-soft-focus' },
   parameters: {

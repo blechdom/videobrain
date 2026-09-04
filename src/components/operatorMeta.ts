@@ -10,6 +10,7 @@ import {
   Clock3,
   Cpu,
   Crosshair,
+  Dices,
   Focus,
   Ghost,
   Grid3X3,
@@ -27,6 +28,7 @@ import {
   Sparkles,
   Timer,
   Waves,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 import type { NodeKind, OperatorDomain } from '../graph';
@@ -51,6 +53,7 @@ export const DOMAIN_ACCENTS: Record<OperatorDomain, string> = {
 export const OPERATOR_META: Record<NodeKind, OperatorMeta> = {
   time: { accent: '#d8ff5f', icon: Clock3, shortLabel: 'Time' },
   beatClock: { accent: '#a6ff83', icon: Timer, shortLabel: 'Beat' },
+  autoSelector: { accent: '#c3f06b', icon: Dices, shortLabel: 'Auto' },
   oscillator: { accent: '#b8ef66', icon: AudioWaveform, shortLabel: 'LFO' },
   constant: { accent: '#d8ff5f', icon: Hash, shortLabel: 'Value' },
   math: { accent: '#c8f46c', icon: Calculator, shortLabel: 'Math' },
@@ -74,6 +77,7 @@ export const OPERATOR_META: Record<NodeKind, OperatorMeta> = {
   blur: { accent: '#d481ff', icon: Focus, shortLabel: 'Blur' },
   trails: { accent: '#df83ff', icon: Ghost, shortLabel: 'Trails' },
   feedbackSpiral: { accent: '#f06dff', icon: RotateCw, shortLabel: 'Spiral' },
+  strobe: { accent: '#ff72d5', icon: Zap, shortLabel: 'Strobe' },
   colorGrade: { accent: '#ff80bb', icon: Palette, shortLabel: 'Grade' },
   transform2d: { accent: '#7dcfff', icon: Move, shortLabel: 'Transform' },
   display: { accent: '#ff795c', icon: MonitorUp, shortLabel: 'Display' },

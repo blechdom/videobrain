@@ -98,6 +98,28 @@ const definitions = [
     },
   },
   {
+    kind: 'autoSelector',
+    title: 'Auto Selector',
+    summary: 'Advances a switch index on a deterministic timed interval.',
+    domain: 'control',
+    category: 'timing',
+    inputs: [port('position', 'Position', 'control.f32', true)],
+    outputs: [
+      port('index', 'Index', 'control.f32'),
+      port('phase', 'Phase', 'control.f32'),
+    ],
+    params: {
+      interval: numberParam('Interval (s)', 1.5, 0.1, 60, 0.1),
+      count: numberParam('Count', 4, 2, 4, 1),
+      order: selectParam('Order', 'forward', [
+        'forward',
+        'reverse',
+        'shuffleBag',
+      ]),
+      seed: numberParam('Seed', 23, 0, 65_535, 1),
+    },
+  },
+  {
     kind: 'oscillator',
     title: 'Oscillator',
     summary: 'A normalized repeating control signal.',
@@ -598,6 +620,35 @@ const definitions = [
       visualPasses: 1,
       renderTargets: 2,
       stateful: true,
+    },
+  },
+  {
+    kind: 'strobe',
+    title: 'Strobe',
+    summary: 'Rhythmically gates a frame with internal rate capped at 3 Hz.',
+    domain: 'frame',
+    category: 'image-processing',
+    inputs: [
+      port('source', 'Source', 'frame.rgba'),
+      port('phase', 'Phase', 'control.f32', true),
+      port('amount', 'Amount', 'control.f32', true),
+    ],
+    outputs: [port('frame', 'Frame', 'frame.rgba')],
+    params: {
+      rate: numberParam('Rate (Hz)', 1, 0, 3, 0.01),
+      duty: numberParam('Open fraction', 0.8, 0.05, 0.95, 0.01),
+      amount: numberParam('Amount', 0.35, 0, 1, 0.01),
+      closedMode: selectParam('Closed', 'black', [
+        'black',
+        'white',
+        'transparent',
+        'invert',
+      ]),
+    },
+    execution: {
+      visualPasses: 1,
+      renderTargets: 1,
+      stateful: false,
     },
   },
   {

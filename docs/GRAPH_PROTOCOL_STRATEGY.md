@@ -127,12 +127,12 @@ orthogonal to signal type and runtime domain. The ordered category IDs are:
 
 | ID | Label | Current responsibility |
 | --- | --- | --- |
-| `timing` | Timing | Transport, beat, and periodic sources |
+| `timing` | Timing | Transport, beat, deterministic selection, and periodic sources |
 | `control` | Control | Constants, arithmetic, range mapping, and smoothing |
 | `interaction-ai` | Interaction & AI | Pointer/XY authoring and model-oriented prompt/frame interaction |
 | `inputs` | Inputs | Permissioned camera and microphone-derived inputs |
 | `generators` | Generators | Permission-free frame creation |
-| `image-processing` | Image Processing | One-frame transforms, filters, grading, and retained image effects |
+| `image-processing` | Image Processing | One-frame transforms, filters, grading, gating, and retained image effects |
 | `compositing` | Compositing | Masks, layers, blends, and frame routing |
 | `output` | Output | Display and future recording or transmission roots |
 
@@ -179,6 +179,19 @@ may skip an unselected branch only through an explicit router contract that
 defines selector timing, state advancement, capability ownership, and the frame
 used when selection changes. Canvas layout or an optimizer guess must never
 silently decide whether a branch cooks.
+
+Auto Selector does not change that rule. It is a pure control operator: a
+Position divided by Interval selects an integer step and normalized Phase, then
+forward, reverse, or seeded shuffle-bag ordering maps the step to a configured
+index. Count does not inspect downstream sockets. This keeps reset, seek, reload,
+and frame-rate changes deterministic while Frame Switch retains its existing
+structural reachability.
+
+Strobe demonstrates parameter/input precedence on a visual clock. With no Phase
+wire, Rate drives an internal oscillator and is clamped to 0–3 Hz. A connected
+Phase replaces that clock completely; its producer must be bounded separately.
+Amount 0 is a visual bypass. Inspection should expose the binding but must not
+claim that upstream frames are photosensitivity-safe.
 
 ## Project, catalog, and protocol compatibility
 
@@ -390,11 +403,12 @@ education aligned instead of treating them as cleanup after implementation.
 Module priority follows graph leverage and missing structural roles, not the
 length of an external operator catalog:
 
-1. **Shipped foundation and specialized feedback:** control
+1. **Shipped foundation, live selection, and specialized effects:** control
    math/mapping/smoothing, 2D transform, solid, threshold, mask, composite,
-   frame switch, blur, and Spiral Feedback, each exercised by an
-   output-reachable starter. Spiral Feedback owns retained state internally; it
-   does not replace the general Delay/Feedback boundary below.
+   frame switch, blur, Auto Selector, Strobe, and Spiral Feedback, each
+   exercised by an output-reachable starter. Spiral Feedback owns retained
+   state internally; it does not replace the general Delay/Feedback boundary
+   below.
 2. **Local media and framing:** Image File, Video File, Screen Capture, Crop/Fit,
    Resize, and a Test Card. Teaching graphs: *Image Color Lab*, *Clip Framing*,
    and *Screen Layout & Test*.

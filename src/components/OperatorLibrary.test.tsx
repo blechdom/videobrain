@@ -53,6 +53,7 @@ describe('OperatorLibrary', () => {
     await user.click(timing);
 
     expect(timing).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTitle('Add Auto Selector')).toBeVisible();
     await user.click(screen.getByTitle('Add Transport Time'));
     expect(onAdd).toHaveBeenCalledOnce();
     expect(onAdd).toHaveBeenCalledWith('time');
@@ -93,5 +94,10 @@ describe('OperatorLibrary', () => {
     await user.type(search, 'spiral');
     expect(screen.getByRole('button', { name: 'Image Processing' })).toBeVisible();
     expect(screen.getByTitle('Add Spiral Feedback')).toBeVisible();
+
+    await user.clear(search);
+    await user.type(search, 'strobe');
+    expect(screen.getByRole('button', { name: 'Image Processing' })).toBeVisible();
+    expect(screen.getByTitle('Add Strobe')).toBeVisible();
   });
 });

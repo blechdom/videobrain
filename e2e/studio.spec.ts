@@ -137,7 +137,7 @@ test('starts blank and example graphs from the New patch menu', async ({
   await trigger.click();
   const menu = page.getByRole('menu', { name: 'New patch starters' });
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('menuitem')).toHaveCount(15);
+  await expect(menu.getByRole('menuitem')).toHaveCount(16);
   await expect(
     menu.getByRole('menuitem', { name: /Blank Canvas/ }),
   ).toBeFocused();
@@ -161,6 +161,9 @@ test('starts blank and example graphs from the New patch menu', async ({
   ).toBeVisible();
   await expect(
     menu.getByRole('menuitem', { name: /Beat Switcher/ }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: /Live Cut Lab/ }),
   ).toBeVisible();
   await expect(
     menu.getByRole('menuitem', { name: /Audio Soft Focus/ }),
@@ -351,6 +354,36 @@ test('runs every teaching node inside a visible starter graph', async ({
       .locator('article[aria-label="Audio Level node"]')
       .getByRole('button', { name: 'Start mic' }),
   ).toBeVisible();
+
+  await loadStarter('Live Cut Lab');
+  const selector = page.locator('article[aria-label="Auto Selector node"]');
+  const strobe = page.locator('article[aria-label="Strobe node"]');
+  await expect(
+    selector.getByRole('slider', {
+      name: 'Auto Selector Interval (s)',
+    }),
+  ).toHaveValue('1.5');
+  await expect(
+    selector.getByRole('slider', { name: 'Auto Selector Count' }),
+  ).toHaveValue('4');
+  await expect(
+    selector.getByRole('combobox', { name: 'Auto Selector Order' }),
+  ).toHaveValue('shuffleBag');
+  await expect(
+    selector.getByRole('slider', { name: 'Auto Selector Seed' }),
+  ).toHaveValue('23');
+  await expect(
+    strobe.getByRole('slider', { name: 'Strobe Rate (Hz)' }),
+  ).toHaveValue('0.67');
+  await expect(
+    strobe.getByRole('slider', { name: 'Strobe Open fraction' }),
+  ).toHaveValue('0.82');
+  await expect(
+    strobe.getByRole('slider', { name: 'Strobe Amount' }),
+  ).toHaveValue('0.55');
+  await expect(
+    strobe.getByRole('combobox', { name: 'Strobe Closed' }),
+  ).toHaveValue('invert');
 
   await loadStarter('Spiral Feedback Lab');
   const spiral = page.locator('article[aria-label="Spiral Feedback node"]');
@@ -655,6 +688,9 @@ test('opens in-app help with current nodes, I/O guidance, and contribution link'
   await expect(dialog).toContainText('MIDI');
   await expect(dialog).toContainText('OSC');
   await expect(dialog).toContainText('explicit action');
+  await expect(dialog).toContainText('Photosensitivity warning');
+  await expect(dialog).toContainText('connected Phase signal overrides Rate');
+  await expect(dialog).toContainText('about 0.67 cycles per second');
   await expect(
     dialog.getByRole('link', { name: /Contribute on GitHub/ }),
   ).toHaveAttribute('href', 'https://github.com/blechdom/videobrain');

@@ -13,7 +13,15 @@ import {
   type OperatorParamDefinition,
 } from '../graph';
 import { FRAME_FRAGMENT_SHADERS, FULLSCREEN_VERTEX_SHADER } from './shaders';
+import {
+  evaluateAutoSelector,
+  type AutoSelectorOrder,
+} from './autoSelector';
 import { RollingFrameRate } from './frameTiming';
+import {
+  evaluateInternalStrobePhase,
+  normalizeStrobePhase,
+} from './strobe';
 
 export interface RenderPointer {
   x: number;
@@ -223,6 +231,21 @@ function compositeOperationIndex(operation: string): number {
       return 4;
     case 'xor':
       return 5;
+    default:
+      return 0;
+  }
+}
+
+function strobeClosedModeIndex(mode: string): number {
+  switch (mode) {
+    case 'black':
+      return 0;
+    case 'white':
+      return 1;
+    case 'transparent':
+      return 2;
+    case 'invert':
+      return 3;
     default:
       return 0;
   }
@@ -1166,6 +1189,23 @@ export class WebGLRenderer {
         );
         return;
       }
+      case 'autoSelector': {
+        const position = this.controlInput(compiledNode, 'position', time);
+        const sample = evaluateAutoSelector(
+          position,
+          clamp(this.numberParam(compiledNode, 'interval'), 0.1, 60),
+          Math.round(
+            clamp(this.numberParam(compiledNode, 'count'), 2, 4),
+          ),
+          this.stringParam(compiledNode, 'order') as AutoSelectorOrder,
+          Math.round(
+            clamp(this.numberParam(compiledNode, 'seed'), 0, 65_535),
+          ),
+        );
+        this.setControl(node.id, 'index', sample.index);
+        this.setControl(node.id, 'phase', sample.phase);
+        return;
+      }
       case 'oscillator': {
         const phaseSignal = this.controlInput(compiledNode, 'phase', time);
         const frequency = this.numberParam(compiledNode, 'frequency');
@@ -1917,6 +1957,49 @@ export class WebGLRenderer {
           modeIndex(this.stringParam(compiledNode, 'mode')),
         );
         break;
+      case 'strobe': {
+        this.bindTexture(
+          program,
+          'uSource',
+          this.frameInput(compiledNode, 'source'),
+          0,
+        );
+        const phase = compiledNode.inputs.phase
+          ? normalizeStrobePhase(
+              this.controlInput(compiledNode, 'phase', 0),
+            )
+          : evaluateInternalStrobePhase(
+              time,
+              this.numberParam(compiledNode, 'rate'),
+            );
+        this.uniform1f(program, 'uPhase', phase);
+        this.uniform1f(
+          program,
+          'uDuty',
+          clamp(this.numberParam(compiledNode, 'duty'), 0.05, 0.95),
+        );
+        this.uniform1f(
+          program,
+          'uAmount',
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'amount',
+              this.numberParam(compiledNode, 'amount'),
+            ),
+            0,
+            1,
+          ),
+        );
+        this.uniform1f(
+          program,
+          'uClosedMode',
+          strobeClosedModeIndex(
+            this.stringParam(compiledNode, 'closedMode'),
+          ),
+        );
+        break;
+      }
       case 'colorGrade':
         this.bindTexture(
           program,

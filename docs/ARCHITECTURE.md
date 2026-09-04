@@ -282,9 +282,9 @@ The POC renderer owns:
 - presentation and runtime diagnostics.
 
 The current frame set includes procedural and solid producers; transform, warp,
-blur, threshold, mask, blend, Porter-Duff composite, color-grade, retained-trail,
-and spiral-feedback processors; a four-input frame switch; camera/model
-producers; and Display.
+blur, threshold, mask, blend, Porter-Duff composite, color-grade, strobe,
+retained-trail, and spiral-feedback processors; a four-input frame switch;
+camera/model producers; and Display.
 Threshold intentionally produces a visible frame, while Mask is the explicit
 step that applies a selected channel to source alpha.
 
@@ -294,7 +294,15 @@ A renderer interface isolates graph semantics from WebGL2 details. A future WebG
 
 ## Control path
 
-The CPU control runtime evaluates small values rather than image-sized buffers. POC control nodes include monotonic Transport Time, tempo-locked Beat Clock, periodic waves, reusable constants, arithmetic, range mapping, rise/fall smoothing, an editable normalized XY source, pointer position/held/press/release, and optional media level analysis.
+The CPU control runtime evaluates small values rather than image-sized buffers.
+POC control nodes include monotonic Transport Time, tempo-locked Beat Clock,
+deterministic interval-based Auto Selector, periodic waves, reusable constants,
+arithmetic, range mapping, rise/fall smoothing, an editable normalized XY
+source, pointer position/held/press/release, and optional media level analysis.
+Auto Selector derives a discrete index and normalized interval phase from a
+position input. Forward, reverse, and seeded shuffle-bag orders are pure
+functions of position, so reset, seek, frame pacing, and reload do not depend on
+hidden random state.
 
 The monitor owns one `requestAnimationFrame` scheduler. Display-sync mode renders
 on every callback; fixed 60 fps and 30 fps modes select slots from an anchored
@@ -348,6 +356,12 @@ The current implementation enforces these limits before replacing a valid plan:
 
 Parameter keys, types, numeric ranges, select options, and text lengths are validated against the registry. Missing registered parameters receive their defaults; unknown data is rejected transactionally.
 
+Strobe's own Rate parameter is clamped to 0…3 Hz; its Amount provides an
+immediate visual bypass at 0. A connected Phase input deliberately overrides
+the internal oscillator, so the graph author remains responsible for keeping
+that source at or below 3 cycles per second. This renderer limit cannot detect
+or make safe flashes already present in an upstream frame.
+
 ## Security and resource safety
 
 - Project loading never evaluates JavaScript strings.
@@ -360,6 +374,9 @@ Parameter keys, types, numeric ranges, select options, and text lengths are vali
 - API adapters and every credential-bearing connection require HTTPS/WSS. Plain HTTP/WS is limited to credential-free Local loopback use, and the hosted HTTPS page rejects both plaintext transports.
 - Remote media must be same-origin or explicitly permit cross-origin use. Arbitrary webpages are not frame sources.
 - Project size, output resolution, node count, GPU pass count, and retained-frame memory receive hard limits.
+- Flashing examples are identified before loading and document an Amount 0
+  bypass, removal/rewiring path, and the separate risk of externally driven
+  phase or flashing source media.
 - User-authored shaders are deferred until they can be compiled in an isolated, cancellable workflow with clear diagnostics.
 - Imported projects are schema-versioned and validated before replacing the current graph.
 
