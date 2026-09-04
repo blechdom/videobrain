@@ -12,12 +12,12 @@ const plannedAreas = [
   {
     title: 'Control and mapping',
     items:
-      'Constant, Math, Map Range, Smooth / Slew, triggers, envelopes, counters, timers, sequencing, and automation curves',
+      'Compare, logic, gates, triggers, envelopes, counters, timers, sequencing, vectors, and automation curves',
   },
   {
     title: 'Media and compositing',
     items:
-      'Image/video files, screen capture, shapes, text, Transform 2D, blur, keying, masks, richer compositing, switching, and displacement',
+      'Image/video files, screen capture, shapes, text, blur, keying, masks, richer compositing, switching, and displacement',
   },
   {
     title: 'Audio',
@@ -65,6 +65,21 @@ const recipes = [
     title: 'Two-axis color control',
     path: 'XY Pad X → Color Grade Hue; XY Pad Y → Color Grade Exposure',
     note: 'Drag inside the XY Pad node to shape two visual values at once.',
+  },
+  {
+    title: 'Control arithmetic and mapping',
+    path: 'Oscillator → Math A; Constant → Math B; Math → Map Range → Blend Mix',
+    note: 'Open Control Math to see a wave scaled by a reusable value, remapped to 0–1, and used as a complete visual crossfade.',
+  },
+  {
+    title: 'Smoothed pointer motion',
+    path: 'Pointer X → Map Range → Smooth → Transform 2D X',
+    note: 'Open Smooth Pointer, move across the monitor, and compare the separate Rise and Fall response times.',
+  },
+  {
+    title: 'Two-dimensional transform controls',
+    path: 'XY Pad → Map Range → Transform 2D X/Y; Oscillator → Map Range → Rotation',
+    note: 'Open Transform Playground to move the frame, watch mapped rotation, and change its Constant-driven scale.',
   },
   {
     title: 'Audio-reactive trails',
@@ -224,7 +239,8 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
             <p className="help-intro">
               The New patch menu replaces the current graph with one of these
               examples. The replacement is undoable. Blank Canvas contains no
-              nodes; every other starter has a complete path to Display.
+              nodes; every other starter has a complete path to Display. Across
+              the collection, every current node appears on a reachable branch.
             </p>
             <div className="help-recipe-list">
               {GRAPH_PRESETS.map((preset) => (
@@ -296,7 +312,7 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
           </section>
 
           <section id="help-recipes" className="help-section">
-            <h2>Seven patches to try</h2>
+            <h2>Ten patches to try</h2>
             <div className="help-recipe-list">
               {recipes.map((recipe) => (
                 <article key={recipe.title}>
@@ -383,8 +399,9 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
               connected, replacing that target's inline slider value. Audio Level
               applies <code>clamp((input − Floor) × Gain, 0, 1)</code>: Floor rejects
               quiet background noise and Gain controls analysis sensitivity.
-              Neither setting is speaker volume. A future Map Range node will make
-              scaling and offsetting control signals more flexible.
+              Neither setting is speaker volume. Add Map Range after Level to
+              change its output span, then add Smooth when you want slower attack
+              or release motion.
             </p>
             <h3>Using Video Input</h3>
             <p>

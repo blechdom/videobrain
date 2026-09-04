@@ -86,6 +86,78 @@ describe('operator registry', () => {
     });
   });
 
+  it('defines the foundational control operators and their stable contracts', () => {
+    expect(OPERATOR_REGISTRY.constant).toMatchObject({
+      domain: 'control',
+      inputs: [],
+      outputs: [
+        { id: 'value', label: 'Value', type: 'control.f32', optional: false },
+      ],
+    });
+    expect(getDefaultParams('constant')).toEqual({ value: 0.5 });
+
+    expect(OPERATOR_REGISTRY.math.inputs).toEqual([
+      { id: 'a', label: 'A', type: 'control.f32', optional: true },
+      { id: 'b', label: 'B', type: 'control.f32', optional: true },
+    ]);
+    expect(OPERATOR_REGISTRY.math.outputs).toEqual([
+      { id: 'value', label: 'Value', type: 'control.f32', optional: false },
+    ]);
+    expect(OPERATOR_REGISTRY.math.params.operation).toMatchObject({
+      type: 'select',
+      defaultValue: 'add',
+      options: [
+        { value: 'add', label: 'Add' },
+        { value: 'subtract', label: 'Subtract' },
+        { value: 'multiply', label: 'Multiply' },
+        { value: 'divide', label: 'Divide' },
+        { value: 'min', label: 'Min' },
+        { value: 'max', label: 'Max' },
+      ],
+    });
+    expect(getDefaultParams('math')).toEqual({
+      a: 0,
+      b: 1,
+      operation: 'add',
+    });
+
+    expect(OPERATOR_REGISTRY.mapRange.inputs).toEqual([
+      { id: 'value', label: 'Value', type: 'control.f32', optional: false },
+    ]);
+    expect(OPERATOR_REGISTRY.mapRange.outputs).toEqual([
+      { id: 'value', label: 'Value', type: 'control.f32', optional: false },
+    ]);
+    expect(OPERATOR_REGISTRY.mapRange.params.boundary).toMatchObject({
+      type: 'select',
+      defaultValue: 'clamp',
+      options: [
+        { value: 'none', label: 'None' },
+        { value: 'clamp', label: 'Clamp' },
+        { value: 'wrap', label: 'Wrap' },
+        { value: 'fold', label: 'Fold' },
+      ],
+    });
+    expect(getDefaultParams('mapRange')).toEqual({
+      inMin: 0,
+      inMax: 1,
+      outMin: 0,
+      outMax: 1,
+      boundary: 'clamp',
+    });
+
+    expect(OPERATOR_REGISTRY.smooth.inputs).toEqual([
+      { id: 'value', label: 'Value', type: 'control.f32', optional: false },
+    ]);
+    expect(OPERATOR_REGISTRY.smooth.outputs).toEqual([
+      { id: 'value', label: 'Value', type: 'control.f32', optional: false },
+    ]);
+    expect(getDefaultParams('smooth')).toEqual({
+      rise: 0.25,
+      fall: 0.25,
+      initial: 0,
+    });
+  });
+
   it('exposes pointer position and button-edge signals independently', () => {
     expect(OPERATOR_REGISTRY.pointer.outputs).toEqual([
       { id: 'x', label: 'X', type: 'control.f32', optional: false },
@@ -150,6 +222,45 @@ describe('operator registry', () => {
       facing: 'user',
       fit: 'cover',
       mirror: 'on',
+    });
+  });
+
+  it('defines a single-pass 2D transform with controllable spatial inputs', () => {
+    const definition = OPERATOR_REGISTRY.transform2d;
+
+    expect(definition.domain).toBe('frame');
+    expect(definition.inputs).toEqual([
+      { id: 'source', label: 'Source', type: 'frame.rgba', optional: false },
+      { id: 'x', label: 'X', type: 'control.f32', optional: true },
+      { id: 'y', label: 'Y', type: 'control.f32', optional: true },
+      { id: 'scale', label: 'Scale', type: 'control.f32', optional: true },
+      {
+        id: 'rotation',
+        label: 'Rotation',
+        type: 'control.f32',
+        optional: true,
+      },
+    ]);
+    expect(definition.outputs).toEqual([
+      { id: 'frame', label: 'Frame', type: 'frame.rgba', optional: false },
+    ]);
+    expect(getDefaultParams('transform2d')).toEqual({
+      x: 0,
+      y: 0,
+      scale: 1,
+      rotation: 0,
+      pivotX: 0.5,
+      pivotY: 0.5,
+      edgeMode: 'transparent',
+    });
+    expect(definition.params.edgeMode).toMatchObject({
+      type: 'select',
+      options: [
+        { value: 'transparent', label: 'Transparent' },
+        { value: 'clamp', label: 'Clamp' },
+        { value: 'repeat', label: 'Repeat' },
+        { value: 'mirror', label: 'Mirror' },
+      ],
     });
   });
 

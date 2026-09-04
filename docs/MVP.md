@@ -63,7 +63,7 @@ The built-in **Signal Graph** is attractive without media permissions or network
 - Infinite graph canvas with pan and zoom.
 - Select, move, connect, disconnect, create, duplicate, and delete.
 - Searchable node palette.
-- Accessible New patch menu with Blank Canvas and seven validated starter graphs.
+- Accessible New patch menu with Blank Canvas and ten validated starter graphs.
 - Custom node cards with category, name, typed ports, reachability state, and always-visible parameter controls.
 - Inspector with parameter sliders and operator details.
 - Distinct visual treatment for `frame.rgba`, `control.f32`, and `text.utf8` connections.
@@ -78,6 +78,8 @@ The built-in **Signal Graph** is attractive without media permissions or network
 - Warp and two-input Blend processors.
 - Trails with internally managed previous-frame state.
 - Color Grade.
+- Transform 2D with control inputs for translation, scale, and rotation plus
+  editable pivot and edge behavior.
 - Display output.
 
 ### Implemented control nodes
@@ -88,6 +90,10 @@ The built-in **Signal Graph** is attractive without media permissions or network
 - Pointer X/Y position plus Held state and one-tick Press/Release pulses.
 - XY Pad with normalized, independently connectable X and Y values.
 - Audio Level with deterministic demo input and explicit opt-in microphone analysis. It emits only a normalized visual control, `clamp((input - floor) * gain, 0, 1)`; it intentionally provides no playback, speaker monitoring, recording, or audio pass-through.
+- Constant for reusable numeric values.
+- Math for add, subtract, multiply, divide, minimum, and maximum operations.
+- Map Range for linear remapping with none, clamp, wrap, and fold boundaries.
+- Smooth for frame-rate-independent rise/fall filtering with deterministic reset.
 
 Every animatable numeric visual parameter uses the same typed control-port mechanism. The graph does not rely on node-specific animation wiring.
 
@@ -103,8 +109,8 @@ See [Model Connectors](MODEL_CONNECTORS.md) for the current wire contract and ad
 
 ### Deferred node breadth
 
-- Solid color, uploaded image, blur, and general transform processors.
-- Constant, arithmetic, range mapping, smoothing, and sample-and-hold controls.
+- Solid color, uploaded image, blur, crop, and key/mask processors.
+- Compare, trigger, vector, envelope, and sample-and-hold controls.
 - A general-purpose Delay node beyond the retained state inside Trails.
 - Audio Device In, file playback, FFT/band analysis, and an explicit feedback-safe Audio Output/Monitor path.
 
@@ -172,6 +178,8 @@ The POC is complete when all of the following are demonstrable in a production b
 
 - The built-in project renders immediately after page load.
 - Every nonblank starter compiles to a Display path, while Blank Canvas is truly empty.
+- Constant, Math, Map Range, Smooth, and Transform 2D each appear in at least
+  one bundled starter where the node is reachable from Display.
 - Adding, removing, and rewiring supported nodes changes the output correctly.
 - At least one periodic control visibly modulates a transform parameter.
 - Beat Clock phase drives a downstream oscillator, and Pointer exposes position, held, press, and release values.
@@ -239,7 +247,7 @@ Judge the MVP by graph fluency, modulation, visual quality, and reliability. Add
 
 - Add texture pooling, better GPU timing, adaptive resolution, and offscreen-worker evaluation.
 - Harden camera and microphone inputs; add media upload and recording.
-- Add richer control mapping, events, saved parameter snapshots, and reusable modules.
+- Add richer control events, saved parameter snapshots, and reusable modules.
 - Expand browser and accessibility testing.
 
 ### Phase 2: modern compute and extensibility

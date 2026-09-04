@@ -4,6 +4,7 @@ import { compileGraph } from './compiler';
 import { createDefaultGraph } from './defaultGraph';
 import { NODE_KINDS } from './types';
 import {
+  FOUNDATION_NODE_EXAMPLES,
   GRAPH_PRESETS,
   createGraphPreset,
   getGraphPreset,
@@ -11,7 +12,7 @@ import {
 
 describe('graph presets', () => {
   it('provides unique, discoverable preset metadata', () => {
-    expect(GRAPH_PRESETS).toHaveLength(8);
+    expect(GRAPH_PRESETS).toHaveLength(11);
     expect(new Set(GRAPH_PRESETS.map(({ id }) => id)).size).toBe(
       GRAPH_PRESETS.length,
     );
@@ -48,6 +49,21 @@ describe('graph presets', () => {
     expect(compiled.reachableNodeIds.size).toBe(document.nodes.length);
   });
 
+  it.each(NODE_KINDS)('%s has a reachable bundled example', (kind) => {
+    const hasReachableExample = GRAPH_PRESETS.some(({ id }) => {
+      if (id === 'blank') {
+        return false;
+      }
+      const document = createGraphPreset(id);
+      const compiled = compileGraph(document);
+      return document.nodes.some(
+        (node) => node.kind === kind && compiled.reachableNodeIds.has(node.id),
+      );
+    });
+
+    expect(hasReachableExample).toBe(true);
+  });
+
   it('keeps Blank Canvas truly empty', () => {
     const blank = createGraphPreset('blank');
 
@@ -57,6 +73,71 @@ describe('graph presets', () => {
 
   it('maps Full Studio to the built-in composition', () => {
     expect(createGraphPreset('full-studio')).toEqual(createDefaultGraph());
+  });
+
+  it.each(Object.entries(FOUNDATION_NODE_EXAMPLES))(
+    '%s is taught by a reachable starter path',
+    (kind, presetIds) => {
+      expect(presetIds.length).toBeGreaterThan(0);
+
+      for (const presetId of presetIds) {
+        const document = createGraphPreset(presetId);
+        const compiled = compileGraph(document);
+        const examples = document.nodes.filter((node) => node.kind === kind);
+
+        expect(examples.length).toBeGreaterThan(0);
+        expect(
+          examples.every((node) => compiled.reachableNodeIds.has(node.id)),
+        ).toBe(true);
+        expect(compiled.displayNodes).toHaveLength(1);
+      }
+    },
+  );
+
+  it('ships the mapping and motion teaching paths as wired examples', () => {
+    const controlMath = createGraphPreset('control-math');
+    const smoothPointer = createGraphPreset('smooth-pointer');
+    const transformPlayground = createGraphPreset('transform-playground');
+
+    expect(controlMath.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: { nodeId: 'control-math-constant', portId: 'value' },
+          target: { nodeId: 'control-math-multiply', portId: 'b' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'control-math-map', portId: 'value' },
+          target: { nodeId: 'control-math-blend', portId: 'mix' },
+        }),
+      ]),
+    );
+    expect(
+      controlMath.nodes.find(({ id }) => id === 'control-math-blend')?.params,
+    ).toMatchObject({ mode: 'normal' });
+    expect(smoothPointer.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: { nodeId: 'smooth-pointer-map', portId: 'value' },
+          target: { nodeId: 'smooth-pointer-slew', portId: 'value' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'smooth-pointer-slew', portId: 'value' },
+          target: { nodeId: 'smooth-pointer-transform', portId: 'x' },
+        }),
+      ]),
+    );
+    expect(transformPlayground.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: { nodeId: 'transform-play-map-x', portId: 'value' },
+          target: { nodeId: 'transform-play-transform', portId: 'x' },
+        }),
+        expect.objectContaining({
+          source: { nodeId: 'transform-play-rotation', portId: 'value' },
+          target: { nodeId: 'transform-play-transform', portId: 'rotation' },
+        }),
+      ]),
+    );
   });
 
   it('crossfades the complete range between both mixer sources', () => {

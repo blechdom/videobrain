@@ -230,6 +230,19 @@ export const TimingAndGenerationNodes: Story = {
   },
 };
 
+export const MappingAndTransformNodes: Story = {
+  args: {
+    kinds: ['constant', 'math', 'mapRange', 'smooth', 'transform2d'],
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'The five foundation nodes shown with their production ports and inline controls. Runnable graph examples are available in the Control Math, Smooth Pointer, and Transform Playground stories.',
+      },
+    },
+  },
+};
+
 export const InactiveNode: Story = {
   args: {
     kinds: ['warp'],

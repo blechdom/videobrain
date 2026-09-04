@@ -205,6 +205,59 @@ void main() {
 }
 `;
 
+const transform2d = `#version 300 es
+precision highp float;
+
+in vec2 vUv;
+out vec4 outColor;
+
+uniform sampler2D uSource;
+uniform vec2 uResolution;
+uniform vec2 uTranslate;
+uniform float uScale;
+uniform float uRotation;
+uniform vec2 uPivot;
+uniform float uEdgeMode;
+
+vec2 mirrorUv(vec2 uv) {
+  return 1.0 - abs(mod(uv, 2.0) - 1.0);
+}
+
+void main() {
+  float aspect = uResolution.x / max(uResolution.y, 1.0);
+  vec2 position = vUv - uPivot;
+  position.x *= aspect;
+  position -= vec2(uTranslate.x * aspect, uTranslate.y);
+
+  float cosine = cos(uRotation);
+  float sine = sin(uRotation);
+  position = vec2(
+    cosine * position.x + sine * position.y,
+    -sine * position.x + cosine * position.y
+  ) / max(uScale, 0.0001);
+  position.x /= aspect;
+  vec2 sourceUv = position + uPivot;
+
+  if (uEdgeMode < 0.5) {
+    if (
+      any(lessThan(sourceUv, vec2(0.0))) ||
+      any(greaterThan(sourceUv, vec2(1.0)))
+    ) {
+      outColor = vec4(0.0);
+      return;
+    }
+  } else if (uEdgeMode < 1.5) {
+    sourceUv = clamp(sourceUv, 0.0, 1.0);
+  } else if (uEdgeMode < 2.5) {
+    sourceUv = fract(sourceUv);
+  } else {
+    sourceUv = mirrorUv(sourceUv);
+  }
+
+  outColor = texture(uSource, sourceUv);
+}
+`;
+
 const warp = `#version 300 es
 precision highp float;
 
@@ -221,11 +274,12 @@ void main() {
   float xWave = sin(uv.y * uFrequency * 6.2831853 + uTime * 1.17);
   float yWave = cos(uv.x * uFrequency * 6.2831853 - uTime * 0.83);
   vec2 offset = vec2(xWave, yWave) * uAmount * 0.075;
-  vec3 color = texture(uSource, fract(uv + offset)).rgb;
+  vec4 source = texture(uSource, fract(uv + offset));
+  vec3 color = source.rgb;
   float split = uAmount * 0.012;
   color.r = texture(uSource, fract(uv + offset + vec2(split, 0.0))).r;
   color.b = texture(uSource, fract(uv + offset - vec2(split, 0.0))).b;
-  outColor = vec4(color, 1.0);
+  outColor = vec4(color, source.a);
 }
 `;
 
@@ -241,19 +295,36 @@ uniform float uMix;
 uniform float uMode;
 
 void main() {
-  vec3 a = texture(uA, vUv).rgb;
-  vec3 b = texture(uB, vUv).rgb;
-  vec3 combined;
+  vec4 a = texture(uA, vUv);
+  vec4 b = texture(uB, vUv);
+  vec3 combinedColor;
+  vec3 combinedPremultiplied;
+  float combinedAlpha;
+
   if (uMode < 0.5) {
-    combined = b;
+    combinedPremultiplied = b.rgb * b.a;
+    combinedAlpha = b.a;
   } else if (uMode < 1.5) {
-    combined = 1.0 - (1.0 - a) * (1.0 - b);
+    combinedColor = 1.0 - (1.0 - a.rgb) * (1.0 - b.rgb);
   } else if (uMode < 2.5) {
-    combined = min(a + b, 1.0);
+    combinedColor = min(a.rgb + b.rgb, 1.0);
   } else {
-    combined = a * b;
+    combinedColor = a.rgb * b.rgb;
   }
-  outColor = vec4(mix(a, combined, clamp(uMix, 0.0, 1.0)), 1.0);
+
+  if (uMode >= 0.5) {
+    combinedAlpha = a.a + b.a - a.a * b.a;
+    combinedPremultiplied =
+      a.rgb * a.a * (1.0 - b.a) +
+      b.rgb * b.a * (1.0 - a.a) +
+      combinedColor * a.a * b.a;
+  }
+
+  float amount = clamp(uMix, 0.0, 1.0);
+  float alpha = mix(a.a, combinedAlpha, amount);
+  vec3 premultiplied = mix(a.rgb * a.a, combinedPremultiplied, amount);
+  vec3 color = alpha > 0.00001 ? premultiplied / alpha : vec3(0.0);
+  outColor = vec4(clamp(color, 0.0, 1.0), clamp(alpha, 0.0, 1.0));
 }
 `;
 
@@ -268,11 +339,17 @@ uniform sampler2D uPrevious;
 uniform float uFeedback;
 
 void main() {
-  vec3 current = texture(uSource, vUv).rgb;
+  vec4 current = texture(uSource, vUv);
   vec2 drift = (vUv - 0.5) * 0.0025;
-  vec3 previous = texture(uPrevious, clamp(vUv + drift, 0.0, 1.0)).rgb;
-  vec3 accumulated = max(current, previous * clamp(uFeedback, 0.0, 0.995));
-  outColor = vec4(accumulated, 1.0);
+  vec4 previous = texture(uPrevious, clamp(vUv + drift, 0.0, 1.0));
+  float feedback = clamp(uFeedback, 0.0, 0.995);
+  float alpha = max(current.a, previous.a * feedback);
+  vec3 premultiplied = max(
+    current.rgb * current.a,
+    previous.rgb * previous.a * feedback
+  );
+  vec3 color = alpha > 0.00001 ? premultiplied / alpha : vec3(0.0);
+  outColor = vec4(clamp(color, 0.0, 1.0), alpha);
 }
 `;
 
@@ -296,14 +373,15 @@ vec3 rotateHue(vec3 color, float angle) {
 }
 
 void main() {
-  vec3 color = texture(uSource, vUv).rgb;
+  vec4 source = texture(uSource, vUv);
+  vec3 color = source.rgb;
   color *= exp2(uExposure);
   color = (color - 0.5) * uContrast + 0.5;
   float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
   color = mix(vec3(luminance), color, uSaturation);
   color = rotateHue(color, uHue * 6.2831853);
   color = color / (1.0 + max(color, vec3(0.0)) * 0.18);
-  outColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  outColor = vec4(clamp(color, 0.0, 1.0), source.a);
 }
 `;
 
@@ -325,6 +403,7 @@ export const FRAME_FRAGMENT_SHADERS: Partial<Record<NodeKind, string>> = {
   videoModel,
   plasma,
   cells,
+  transform2d,
   warp,
   blend,
   trails,

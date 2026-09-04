@@ -4,6 +4,7 @@ import {
   GRAPH_SCHEMA_VERSION,
   MAX_RENDER_DIMENSION,
   MAX_RENDER_PIXELS,
+  cloneGraphDocument,
   createGraphNode,
   type GraphDocument,
 } from '../graph';
@@ -16,11 +17,13 @@ import {
 
 interface FakeWebGLContext {
   gl: WebGL2RenderingContext;
+  clearColor: Mock;
   createTexture: Mock;
   deleteTexture: Mock;
   pixelStorei: Mock;
   texImage2D: Mock;
   uniform1f: Mock;
+  uniform2f: Mock;
 }
 
 function createFakeWebGLContext(): FakeWebGLContext {
@@ -28,9 +31,11 @@ function createFakeWebGLContext(): FakeWebGLContext {
   const resource = () => ({ id: (resourceId += 1) });
   const deleteTexture = vi.fn();
   const createTexture = vi.fn(resource);
+  const clearColor = vi.fn();
   const pixelStorei = vi.fn();
   const texImage2D = vi.fn();
   const uniform1f = vi.fn();
+  const uniform2f = vi.fn();
   const gl = {
     DEPTH_TEST: 0x0b71,
     CULL_FACE: 0x0b44,
@@ -75,7 +80,7 @@ function createFakeWebGLContext(): FakeWebGLContext {
     framebufferTexture2D: vi.fn(),
     checkFramebufferStatus: vi.fn(() => 0x8cd5),
     viewport: vi.fn(),
-    clearColor: vi.fn(),
+    clearColor,
     clear: vi.fn(),
     createShader: vi.fn(resource),
     shaderSource: vi.fn(),
@@ -95,17 +100,19 @@ function createFakeWebGLContext(): FakeWebGLContext {
     ),
     uniform1f,
     uniform1i: vi.fn(),
-    uniform2f: vi.fn(),
+    uniform2f,
     activeTexture: vi.fn(),
     drawArrays: vi.fn(),
   } as unknown as WebGL2RenderingContext;
   return {
     gl,
+    clearColor,
     createTexture,
     deleteTexture,
     pixelStorei,
     texImage2D,
     uniform1f,
+    uniform2f,
   };
 }
 
@@ -254,6 +261,40 @@ function createPointerControlGraph(): GraphDocument {
   };
 }
 
+function createControlOutputGraph(
+  controlNodes: GraphDocument['nodes'],
+  controlEdges: GraphDocument['edges'],
+  output: { nodeId: string; portId: string },
+): GraphDocument {
+  return {
+    schemaVersion: GRAPH_SCHEMA_VERSION,
+    nodes: [
+      ...controlNodes,
+      createGraphNode('plasma', { x: 250, y: 0 }, {}, 'control-source'),
+      createGraphNode('colorGrade', { x: 500, y: 0 }, {}, 'control-grade'),
+      createGraphNode('display', { x: 750, y: 0 }, {}, 'control-display'),
+    ],
+    edges: [
+      ...controlEdges,
+      {
+        id: 'control-source-grade',
+        source: { nodeId: 'control-source', portId: 'frame' },
+        target: { nodeId: 'control-grade', portId: 'source' },
+      },
+      {
+        id: 'control-output-grade',
+        source: output,
+        target: { nodeId: 'control-grade', portId: 'saturation' },
+      },
+      {
+        id: 'control-grade-display',
+        source: { nodeId: 'control-grade', portId: 'frame' },
+        target: { nodeId: 'control-display', portId: 'source' },
+      },
+    ],
+  };
+}
+
 function createVideoModelGraph(): GraphDocument {
   return {
     schemaVersion: GRAPH_SCHEMA_VERSION,
@@ -271,6 +312,42 @@ function createVideoModelGraph(): GraphDocument {
       {
         id: 'model-display',
         source: { nodeId: 'model', portId: 'frame' },
+        target: { nodeId: 'display', portId: 'source' },
+      },
+    ],
+  };
+}
+
+function createTransform2dGraph(): GraphDocument {
+  return {
+    schemaVersion: GRAPH_SCHEMA_VERSION,
+    nodes: [
+      createGraphNode('plasma', { x: 0, y: 0 }, {}, 'source'),
+      createGraphNode(
+        'transform2d',
+        { x: 250, y: 0 },
+        {
+          x: 0.25,
+          y: -0.3,
+          scale: 2,
+          rotation: 90,
+          pivotX: 0.2,
+          pivotY: 0.8,
+          edgeMode: 'mirror',
+        },
+        'transform',
+      ),
+      createGraphNode('display', { x: 500, y: 0 }, {}, 'display'),
+    ],
+    edges: [
+      {
+        id: 'source-transform',
+        source: { nodeId: 'source', portId: 'frame' },
+        target: { nodeId: 'transform', portId: 'source' },
+      },
+      {
+        id: 'transform-display',
+        source: { nodeId: 'transform', portId: 'frame' },
         target: { nodeId: 'display', portId: 'source' },
       },
     ],
@@ -299,8 +376,35 @@ function wroteUniform(uniform1f: Mock, name: string, value: number): boolean {
   );
 }
 
+function wroteUniform2f(
+  uniform2f: Mock,
+  name: string,
+  x: number,
+  y: number,
+): boolean {
+  return uniform2f.mock.calls.some(
+    ([location, writtenX, writtenY]) =>
+      (location as unknown as { name?: string } | null)?.name === name &&
+      writtenX === x &&
+      writtenY === y,
+  );
+}
+
+function lastUniformValue(uniform1f: Mock, name: string): number | undefined {
+  for (let index = uniform1f.mock.calls.length - 1; index >= 0; index -= 1) {
+    const call = uniform1f.mock.calls[index] as unknown[] | undefined;
+    const location = call?.[0] as { name?: string } | null | undefined;
+    const value = call?.[1];
+    if (location?.name === name && typeof value === 'number') {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 function createRendererHarness(): {
   canvas: HTMLCanvasElement;
+  clearColor: Mock;
   createTexture: Mock;
   gl: WebGL2RenderingContext;
   deleteTexture: Mock;
@@ -308,15 +412,18 @@ function createRendererHarness(): {
   renderer: WebGLRenderer;
   texImage2D: Mock;
   uniform1f: Mock;
+  uniform2f: Mock;
 } {
   const canvas = document.createElement('canvas');
   const {
     gl,
+    clearColor,
     createTexture,
     deleteTexture,
     pixelStorei,
     texImage2D,
     uniform1f,
+    uniform2f,
   } =
     createFakeWebGLContext();
   Object.defineProperty(canvas, 'getContext', {
@@ -331,6 +438,7 @@ function createRendererHarness(): {
   renderer.setGraph(createVideoGraph());
   return {
     canvas,
+    clearColor,
     createTexture,
     gl,
     deleteTexture,
@@ -338,6 +446,7 @@ function createRendererHarness(): {
     renderer,
     texImage2D,
     uniform1f,
+    uniform2f,
   };
 }
 
@@ -396,6 +505,421 @@ describe('presentation frame-rate measurement', () => {
 });
 
 describe('control-node evaluation', () => {
+  it('routes a fixed Constant value to a control input', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    renderer.setGraph(
+      createControlOutputGraph(
+        [
+          createGraphNode(
+            'constant',
+            { x: 0, y: 0 },
+            { value: 0.73 },
+            'constant',
+          ),
+        ],
+        [],
+        { nodeId: 'constant', portId: 'value' },
+      ),
+    );
+
+    expect(renderer.render(0)).toMatchObject({ rendered: true, passCount: 3 });
+    expect(wroteUniform(uniform1f, 'uSaturation', 0.73)).toBe(true);
+    renderer.dispose();
+  });
+
+  it.each([
+    ['add', 0.8],
+    ['subtract', 0.4],
+    ['multiply', 0.12],
+    ['divide', 3],
+    ['min', 0.2],
+    ['max', 0.6],
+  ] as const)('evaluates the Math %s operation', (operation, expected) => {
+    const { renderer, uniform1f } = createRendererHarness();
+    renderer.setGraph(
+      createControlOutputGraph(
+        [
+          createGraphNode(
+            'math',
+            { x: 0, y: 0 },
+            { a: 0.6, b: 0.2, operation },
+            'math',
+          ),
+        ],
+        [],
+        { nodeId: 'math', portId: 'value' },
+      ),
+    );
+
+    expect(renderer.render(0)).toMatchObject({ rendered: true });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeCloseTo(expected);
+    renderer.dispose();
+  });
+
+  it('uses connected Math inputs and returns zero for division by zero', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    renderer.setGraph(
+      createControlOutputGraph(
+        [
+          createGraphNode(
+            'constant',
+            { x: 0, y: 0 },
+            { value: 0.9 },
+            'constant',
+          ),
+          createGraphNode(
+            'math',
+            { x: 100, y: 0 },
+            { a: 0.2, b: 0, operation: 'divide' },
+            'math',
+          ),
+        ],
+        [
+          {
+            id: 'constant-math-a',
+            source: { nodeId: 'constant', portId: 'value' },
+            target: { nodeId: 'math', portId: 'a' },
+          },
+        ],
+        { nodeId: 'math', portId: 'value' },
+      ),
+    );
+
+    expect(renderer.render(0)).toMatchObject({ rendered: true });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBe(0);
+    renderer.dispose();
+  });
+
+  it.each([
+    ['none', 1.25],
+    ['clamp', 1],
+    ['wrap', 0.25],
+    ['fold', 0.75],
+  ] as const)('applies the Map Range %s boundary', (boundary, expected) => {
+    const { renderer, uniform1f } = createRendererHarness();
+    renderer.setGraph(
+      createControlOutputGraph(
+        [
+          createGraphNode(
+            'constant',
+            { x: 0, y: 0 },
+            { value: 1.25 },
+            'constant',
+          ),
+          createGraphNode(
+            'mapRange',
+            { x: 100, y: 0 },
+            { boundary },
+            'map',
+          ),
+        ],
+        [
+          {
+            id: 'constant-map',
+            source: { nodeId: 'constant', portId: 'value' },
+            target: { nodeId: 'map', portId: 'value' },
+          },
+        ],
+        { nodeId: 'map', portId: 'value' },
+      ),
+    );
+
+    expect(renderer.render(0)).toMatchObject({ rendered: true });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeCloseTo(expected);
+    renderer.dispose();
+  });
+
+  it('supports reversed Map Range inputs and safely handles a zero input span', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    const mapGraph = (params: Record<string, number | string>) =>
+      createControlOutputGraph(
+        [
+          createGraphNode(
+            'constant',
+            { x: 0, y: 0 },
+            { value: 0.25 },
+            'constant',
+          ),
+          createGraphNode('mapRange', { x: 100, y: 0 }, params, 'map'),
+        ],
+        [
+          {
+            id: 'constant-map',
+            source: { nodeId: 'constant', portId: 'value' },
+            target: { nodeId: 'map', portId: 'value' },
+          },
+        ],
+        { nodeId: 'map', portId: 'value' },
+      );
+
+    renderer.setGraph(
+      mapGraph({
+        inMin: 1,
+        inMax: 0,
+        outMin: 0,
+        outMax: 1,
+        boundary: 'none',
+      }),
+    );
+    expect(renderer.render(0)).toMatchObject({ rendered: true });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeCloseTo(0.75);
+
+    uniform1f.mockClear();
+    renderer.setGraph(
+      mapGraph({
+        inMin: 1,
+        inMax: 1,
+        outMin: 0.4,
+        outMax: 1,
+        boundary: 'none',
+      }),
+    );
+    expect(renderer.render(0)).toMatchObject({ rendered: true });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeCloseTo(0.4);
+    renderer.dispose();
+  });
+
+  it('smooths rising and falling values by elapsed transport time', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    const graph = createControlOutputGraph(
+      [
+        createGraphNode('pointer', { x: 0, y: 0 }, {}, 'pointer'),
+        createGraphNode(
+          'smooth',
+          { x: 100, y: 0 },
+          { rise: 0.25, fall: 0.25, initial: 0 },
+          'smooth',
+        ),
+      ],
+      [
+        {
+          id: 'pointer-smooth',
+          source: { nodeId: 'pointer', portId: 'x' },
+          target: { nodeId: 'smooth', portId: 'value' },
+        },
+      ],
+      { nodeId: 'smooth', portId: 'value' },
+    );
+    renderer.setGraph(graph);
+
+    expect(renderer.render(0, 0, { x: 1, y: 0, down: 0, press: 0, release: 0 }))
+      .toMatchObject({ rendered: true });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBe(0);
+
+    uniform1f.mockClear();
+    renderer.render(0.25, 0, {
+      x: 1,
+      y: 0,
+      down: 0,
+      press: 0,
+      release: 0,
+    });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeCloseTo(
+      1 - Math.exp(-1),
+    );
+
+    uniform1f.mockClear();
+    renderer.render(0.5, 0, {
+      x: 0,
+      y: 0,
+      down: 0,
+      press: 0,
+      release: 0,
+    });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeCloseTo(
+      (1 - Math.exp(-1)) * Math.exp(-1),
+    );
+    renderer.dispose();
+  });
+
+  it('preserves Smooth state when an upstream control parameter changes', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    const graph = createControlOutputGraph(
+      [
+        createGraphNode(
+          'constant',
+          { x: 0, y: 0 },
+          { value: 1 },
+          'constant',
+        ),
+        createGraphNode(
+          'smooth',
+          { x: 100, y: 0 },
+          { rise: 1, fall: 1, initial: 0 },
+          'smooth',
+        ),
+      ],
+      [
+        {
+          id: 'constant-smooth',
+          source: { nodeId: 'constant', portId: 'value' },
+          target: { nodeId: 'smooth', portId: 'value' },
+        },
+      ],
+      { nodeId: 'smooth', portId: 'value' },
+    );
+    renderer.setGraph(graph);
+    renderer.render(0);
+    renderer.render(1);
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeCloseTo(
+      1 - Math.exp(-1),
+    );
+
+    const updatedGraph = cloneGraphDocument(graph);
+    const constant = updatedGraph.nodes.find(({ id }) => id === 'constant');
+    if (!constant) {
+      throw new Error('Expected the Constant test node.');
+    }
+    constant.params.value = 0;
+    renderer.setGraph(updatedGraph);
+    uniform1f.mockClear();
+    renderer.render(2);
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeCloseTo(
+      (1 - Math.exp(-1)) * Math.exp(-1),
+    );
+    renderer.dispose();
+  });
+
+  it('preserves Smooth state across position-only graph synchronization', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    const graph = createControlOutputGraph(
+      [
+        createGraphNode(
+          'constant',
+          { x: 0, y: 0 },
+          { value: 1 },
+          'constant',
+        ),
+        createGraphNode(
+          'smooth',
+          { x: 100, y: 0 },
+          { rise: 1, fall: 1, initial: 0 },
+          'smooth',
+        ),
+      ],
+      [
+        {
+          id: 'constant-smooth',
+          source: { nodeId: 'constant', portId: 'value' },
+          target: { nodeId: 'smooth', portId: 'value' },
+        },
+      ],
+      { nodeId: 'smooth', portId: 'value' },
+    );
+    renderer.setGraph(graph);
+    renderer.render(0);
+    renderer.render(1);
+
+    const movedGraph = cloneGraphDocument(graph);
+    const smooth = movedGraph.nodes.find(({ id }) => id === 'smooth');
+    if (!smooth) {
+      throw new Error('Expected the Smooth test node.');
+    }
+    smooth.position.x += 80;
+    renderer.setGraph(movedGraph);
+    uniform1f.mockClear();
+    renderer.render(2);
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeCloseTo(
+      1 - Math.exp(-2),
+    );
+    renderer.dispose();
+  });
+
+  it('drops Smooth state when its node is removed before its ID is reused', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    const graph = createControlOutputGraph(
+      [
+        createGraphNode(
+          'constant',
+          { x: 0, y: 0 },
+          { value: 1 },
+          'constant',
+        ),
+        createGraphNode(
+          'smooth',
+          { x: 100, y: 0 },
+          { rise: 1, fall: 1, initial: 0 },
+          'smooth',
+        ),
+      ],
+      [
+        {
+          id: 'constant-smooth',
+          source: { nodeId: 'constant', portId: 'value' },
+          target: { nodeId: 'smooth', portId: 'value' },
+        },
+      ],
+      { nodeId: 'smooth', portId: 'value' },
+    );
+    renderer.setGraph(graph);
+    renderer.render(0);
+    renderer.render(1);
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeGreaterThan(0);
+
+    renderer.setGraph(
+      createControlOutputGraph(
+        [
+          createGraphNode(
+            'constant',
+            { x: 0, y: 0 },
+            { value: 1 },
+            'constant',
+          ),
+        ],
+        [],
+        { nodeId: 'constant', portId: 'value' },
+      ),
+    );
+    renderer.setGraph(graph);
+    uniform1f.mockClear();
+    renderer.render(2);
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBe(0);
+    renderer.dispose();
+  });
+
+  it('snaps zero-duration smoothing and resets state deterministically', () => {
+    const { renderer, uniform1f } = createRendererHarness();
+    const graph = createControlOutputGraph(
+      [
+        createGraphNode('pointer', { x: 0, y: 0 }, {}, 'pointer'),
+        createGraphNode(
+          'smooth',
+          { x: 100, y: 0 },
+          { rise: 0, fall: 0, initial: 0.2 },
+          'smooth',
+        ),
+      ],
+      [
+        {
+          id: 'pointer-smooth',
+          source: { nodeId: 'pointer', portId: 'x' },
+          target: { nodeId: 'smooth', portId: 'value' },
+        },
+      ],
+      { nodeId: 'smooth', portId: 'value' },
+    );
+    renderer.setGraph(graph);
+
+    renderer.render(0, 0, { x: 1, y: 0, down: 0, press: 0, release: 0 });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeCloseTo(0.2);
+    uniform1f.mockClear();
+    renderer.render(0.1, 0, { x: 1, y: 0, down: 0, press: 0, release: 0 });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBe(1);
+
+    renderer.reset();
+    uniform1f.mockClear();
+    renderer.render(2, 0, { x: 1, y: 0, down: 0, press: 0, release: 0 });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeCloseTo(0.2);
+
+    uniform1f.mockClear();
+    renderer.render(2.1, 0, { x: 1, y: 0, down: 0, press: 0, release: 0 });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBe(1);
+    uniform1f.mockClear();
+    renderer.render(1, 0, { x: 0, y: 0, down: 0, press: 0, release: 0 });
+    expect(lastUniformValue(uniform1f, 'uSaturation')).toBeCloseTo(0.2);
+    renderer.dispose();
+  });
+
   it('routes both XY Pad parameters through their control outputs', () => {
     const { renderer, uniform1f } = createRendererHarness();
     renderer.setGraph(createXYControlGraph());
@@ -441,6 +965,33 @@ describe('control-node evaluation', () => {
     expect(wroteUniform(uniform1f, 'uHue', 0.4)).toBe(true);
     expect(wroteUniform(uniform1f, 'uExposure', 0.5)).toBe(true);
     expect(wroteUniform(uniform1f, 'uSaturation', 0.6)).toBe(true);
+    renderer.dispose();
+  });
+});
+
+describe('frame-node evaluation', () => {
+  it('renders Transform 2D in one aspect-aware pass with deterministic uniforms', () => {
+    const { renderer, uniform1f, uniform2f } = createRendererHarness();
+    renderer.setGraph(createTransform2dGraph());
+
+    expect(renderer.render(0)).toMatchObject({ rendered: true, passCount: 3 });
+    expect(wroteUniform2f(uniform2f, 'uResolution', 640, 360)).toBe(true);
+    expect(wroteUniform2f(uniform2f, 'uTranslate', 0.25, -0.3)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uScale', 2)).toBe(true);
+    expect(lastUniformValue(uniform1f, 'uRotation')).toBeCloseTo(Math.PI / 2);
+    expect(wroteUniform2f(uniform2f, 'uPivot', 0.2, 0.8)).toBe(true);
+    expect(wroteUniform(uniform1f, 'uEdgeMode', 3)).toBe(true);
+    renderer.dispose();
+  });
+
+  it('initializes and resets offscreen frames as transparent', () => {
+    const { clearColor, renderer } = createRendererHarness();
+
+    expect(clearColor).toHaveBeenCalledWith(0, 0, 0, 0);
+    clearColor.mockClear();
+    renderer.reset();
+    expect(clearColor).toHaveBeenCalledWith(0, 0, 0, 0);
+    expect(clearColor).toHaveBeenLastCalledWith(0.008, 0.01, 0.016, 1);
     renderer.dispose();
   });
 });

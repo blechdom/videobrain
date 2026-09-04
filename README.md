@@ -11,13 +11,15 @@ The proof of concept opens into a working composition and runs locally without a
 - Procedural GPU sources, warp, blend, trails, color grading, and display
 - Transport/beat clocks, oscillator, pointer position/held/press/release,
   editable XY pad, and opt-in microphone controls
+- Reusable Constant, Math, Map Range, and Smooth control building blocks
 - Opt-in live camera frames with facing, fit, and mirror controls
+- Transform 2D with translation, scale, rotation, pivot, and edge modes
 - AI Chat prompt text and a Video Model node with a permission-free built-in
   visual preview plus compatible user-run local/API adapter modes
 - Live WebGL2 output with play, pause, reset, fullscreen, and selectable
   display-synced/60/30 fps monitor pacing
 - Node creation, connection, deletion, movement, and parameter editing
-- A New patch menu with Blank Canvas and seven complete starter graphs
+- A New patch menu with Blank Canvas and ten complete starter graphs
 - Always-visible inline sliders, selects, and XY controls synchronized with the inspector
 - Undo and redo for project edits
 - Versioned local autosave plus JSON import and export
@@ -87,11 +89,23 @@ performs no model inference or network request, so the default project requests
 neither device permission nor a server connection.
 
 Use **New patch** to start from Blank Canvas, Full Studio, Beat-Synced
-Color, Two-World Mixer, Pointer Bend, Mic Pulse Trails, Camera Dream, or
-Prompted Visual Preview. The graph replacement is undoable, but it stops active
-camera and microphone sessions, closes model connections, and clears
-session-only model keys. Device-based starters remain in fallback mode until
-access is explicitly enabled again.
+Color, Two-World Mixer, Control Math, Smooth Pointer, Transform Playground,
+Pointer Bend, Mic Pulse Trails, Camera Dream, or Prompted Visual Preview. The
+graph replacement is undoable, but it stops active camera and microphone
+sessions, closes model connections, and clears session-only model keys.
+Device-based starters remain in fallback mode until access is explicitly
+enabled again.
+
+### Foundation-node examples
+
+| Starter | Nodes it teaches | Visible result |
+| --- | --- | --- |
+| Control Math | Constant, Math, Map Range | A scaled oscillator is remapped to crossfade two visual sources. |
+| Smooth Pointer | Map Range, Smooth, Transform 2D | Pointer X becomes centered translation with separate rise and fall response. |
+| Transform Playground | Constant, Map Range, Transform 2D | XY position, automatic rotation, scale, pivot, and edge behavior remain immediately editable. |
+
+Every foundation node in this set is connected to a reachable graph branch that
+ends at Display; none of these starters contains a disconnected demonstration.
 
 Local/API model modes connect only to endpoints implementing the
 `videobrain.frames.v1` adapter contract; arbitrary vendor endpoints are not

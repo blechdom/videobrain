@@ -16,7 +16,7 @@ export const GRAPH_PRESETS = [
   {
     id: 'full-studio',
     title: 'Full Studio',
-    description: 'The complete built-in tour of signals, visuals, and models.',
+    description: 'A broad built-in tour of signals, visuals, and models.',
   },
   {
     id: 'beat-color',
@@ -27,6 +27,21 @@ export const GRAPH_PRESETS = [
     id: 'two-world-mixer',
     title: 'Two-World Mixer',
     description: 'Blend Flow Field and Cells with an animated mix control.',
+  },
+  {
+    id: 'control-math',
+    title: 'Control Math',
+    description: 'Constant × Oscillator → Math → Map Range drives a two-source mix.',
+  },
+  {
+    id: 'smooth-pointer',
+    title: 'Smooth Pointer',
+    description: 'Map and smooth pointer motion before it moves a Transform 2D.',
+  },
+  {
+    id: 'transform-playground',
+    title: 'Transform Playground',
+    description: 'Use XY Pad, mapped rotation, and scale to explore Transform 2D.',
   },
   {
     id: 'pointer-bend',
@@ -52,6 +67,17 @@ export const GRAPH_PRESETS = [
 
 export type GraphPresetId = (typeof GRAPH_PRESETS)[number]['id'];
 export type GraphPreset = (typeof GRAPH_PRESETS)[number];
+
+export const FOUNDATION_NODE_EXAMPLES = {
+  constant: ['control-math', 'transform-playground'],
+  math: ['control-math'],
+  mapRange: ['control-math', 'smooth-pointer', 'transform-playground'],
+  smooth: ['smooth-pointer'],
+  transform2d: ['smooth-pointer', 'transform-playground'],
+} as const satisfies Record<
+  'constant' | 'math' | 'mapRange' | 'smooth' | 'transform2d',
+  readonly GraphPresetId[]
+>;
 
 const edge = (
   id: string,
@@ -183,6 +209,201 @@ function createTwoWorldMixerGraph(): GraphDocument {
         'mixer-display',
         'source',
       ),
+    ],
+  );
+}
+
+function createControlMathGraph(): GraphDocument {
+  return graph(
+    [
+      createGraphNode('time', { x: -720, y: -260 }, {}, 'control-math-time'),
+      createGraphNode(
+        'oscillator',
+        { x: -470, y: -280 },
+        { frequency: 0.12, waveform: 'sine', amplitude: 1, offset: 0 },
+        'control-math-wave',
+      ),
+      createGraphNode(
+        'constant',
+        { x: -470, y: -30 },
+        { value: 0.72 },
+        'control-math-constant',
+      ),
+      createGraphNode(
+        'math',
+        { x: -210, y: -170 },
+        { operation: 'multiply' },
+        'control-math-multiply',
+      ),
+      createGraphNode(
+        'mapRange',
+        { x: 40, y: -170 },
+        {
+          inMin: 0,
+          inMax: 0.72,
+          outMin: 0,
+          outMax: 1,
+          boundary: 'clamp',
+        },
+        'control-math-map',
+      ),
+      createGraphNode(
+        'plasma',
+        { x: -210, y: 120 },
+        { scale: 5.2, speed: 0.25, hue: -0.12 },
+        'control-math-field',
+      ),
+      createGraphNode(
+        'cells',
+        { x: 40, y: 120 },
+        { scale: 8.8, speed: 0.34, contrast: 1.6 },
+        'control-math-cells',
+      ),
+      createGraphNode(
+        'blend',
+        { x: 300, y: 90 },
+        { mode: 'normal', mix: 0.5 },
+        'control-math-blend',
+      ),
+      createGraphNode(
+        'colorGrade',
+        { x: 560, y: 90 },
+        { saturation: 1.35, contrast: 1.12 },
+        'control-math-grade',
+      ),
+      createGraphNode('display', { x: 820, y: 90 }, {}, 'control-math-display'),
+    ],
+    [
+      edge('control-math-time-wave', 'control-math-time', 'value', 'control-math-wave', 'phase'),
+      edge('control-math-wave-a', 'control-math-wave', 'value', 'control-math-multiply', 'a'),
+      edge('control-math-constant-b', 'control-math-constant', 'value', 'control-math-multiply', 'b'),
+      edge('control-math-result-map', 'control-math-multiply', 'value', 'control-math-map', 'value'),
+      edge('control-math-map-mix', 'control-math-map', 'value', 'control-math-blend', 'mix'),
+      edge('control-math-time-field', 'control-math-time', 'value', 'control-math-field', 'time'),
+      edge('control-math-time-cells', 'control-math-time', 'value', 'control-math-cells', 'time'),
+      edge('control-math-field-blend', 'control-math-field', 'frame', 'control-math-blend', 'a'),
+      edge('control-math-cells-blend', 'control-math-cells', 'frame', 'control-math-blend', 'b'),
+      edge('control-math-blend-grade', 'control-math-blend', 'frame', 'control-math-grade', 'source'),
+      edge('control-math-grade-display', 'control-math-grade', 'frame', 'control-math-display', 'source'),
+    ],
+  );
+}
+
+function createSmoothPointerGraph(): GraphDocument {
+  return graph(
+    [
+      createGraphNode('time', { x: -620, y: -260 }, {}, 'smooth-pointer-time'),
+      createGraphNode('pointer', { x: -620, y: 130 }, {}, 'smooth-pointer-input'),
+      createGraphNode(
+        'mapRange',
+        { x: -340, y: 150 },
+        { inMin: 0, inMax: 1, outMin: -0.72, outMax: 0.72, boundary: 'clamp' },
+        'smooth-pointer-map',
+      ),
+      createGraphNode(
+        'smooth',
+        { x: -70, y: 150 },
+        { rise: 0.18, fall: 0.35, initial: 0 },
+        'smooth-pointer-slew',
+      ),
+      createGraphNode(
+        'plasma',
+        { x: -340, y: -170 },
+        { scale: 5.8, speed: 0.24, hue: 0.08 },
+        'smooth-pointer-field',
+      ),
+      createGraphNode(
+        'transform2d',
+        { x: 220, y: -90 },
+        { scale: 1.12, edgeMode: 'mirror' },
+        'smooth-pointer-transform',
+      ),
+      createGraphNode(
+        'colorGrade',
+        { x: 500, y: -90 },
+        { saturation: 1.3, contrast: 1.14 },
+        'smooth-pointer-grade',
+      ),
+      createGraphNode('display', { x: 770, y: -90 }, {}, 'smooth-pointer-display'),
+    ],
+    [
+      edge('smooth-pointer-time-field', 'smooth-pointer-time', 'value', 'smooth-pointer-field', 'time'),
+      edge('smooth-pointer-x-map', 'smooth-pointer-input', 'x', 'smooth-pointer-map', 'value'),
+      edge('smooth-pointer-map-slew', 'smooth-pointer-map', 'value', 'smooth-pointer-slew', 'value'),
+      edge('smooth-pointer-slew-transform', 'smooth-pointer-slew', 'value', 'smooth-pointer-transform', 'x'),
+      edge('smooth-pointer-field-transform', 'smooth-pointer-field', 'frame', 'smooth-pointer-transform', 'source'),
+      edge('smooth-pointer-transform-grade', 'smooth-pointer-transform', 'frame', 'smooth-pointer-grade', 'source'),
+      edge('smooth-pointer-grade-display', 'smooth-pointer-grade', 'frame', 'smooth-pointer-display', 'source'),
+    ],
+  );
+}
+
+function createTransformPlaygroundGraph(): GraphDocument {
+  return graph(
+    [
+      createGraphNode('time', { x: -760, y: -300 }, {}, 'transform-play-time'),
+      createGraphNode(
+        'oscillator',
+        { x: -500, y: -320 },
+        { frequency: 0.06, waveform: 'sine', amplitude: 1, offset: 0 },
+        'transform-play-wave',
+      ),
+      createGraphNode(
+        'mapRange',
+        { x: -230, y: -300 },
+        { inMin: 0, inMax: 1, outMin: -35, outMax: 35, boundary: 'clamp' },
+        'transform-play-rotation',
+      ),
+      createGraphNode(
+        'xyPad',
+        { x: -760, y: 40 },
+        { x: 0.5, y: 0.5 },
+        'transform-play-pad',
+      ),
+      createGraphNode(
+        'mapRange',
+        { x: -500, y: 20 },
+        { inMin: 0, inMax: 1, outMin: -0.55, outMax: 0.55, boundary: 'clamp' },
+        'transform-play-map-x',
+      ),
+      createGraphNode(
+        'mapRange',
+        { x: -500, y: 260 },
+        { inMin: 0, inMax: 1, outMin: -0.55, outMax: 0.55, boundary: 'clamp' },
+        'transform-play-map-y',
+      ),
+      createGraphNode(
+        'constant',
+        { x: -230, y: 260 },
+        { value: 1.12 },
+        'transform-play-scale',
+      ),
+      createGraphNode(
+        'plasma',
+        { x: -230, y: -20 },
+        { scale: 4.8, speed: 0.28, hue: -0.16 },
+        'transform-play-field',
+      ),
+      createGraphNode(
+        'transform2d',
+        { x: 70, y: -20 },
+        { edgeMode: 'mirror' },
+        'transform-play-transform',
+      ),
+      createGraphNode('display', { x: 380, y: -20 }, {}, 'transform-play-display'),
+    ],
+    [
+      edge('transform-play-time-wave', 'transform-play-time', 'value', 'transform-play-wave', 'phase'),
+      edge('transform-play-wave-rotation', 'transform-play-wave', 'value', 'transform-play-rotation', 'value'),
+      edge('transform-play-time-field', 'transform-play-time', 'value', 'transform-play-field', 'time'),
+      edge('transform-play-pad-map-x', 'transform-play-pad', 'x', 'transform-play-map-x', 'value'),
+      edge('transform-play-pad-map-y', 'transform-play-pad', 'y', 'transform-play-map-y', 'value'),
+      edge('transform-play-map-x-transform', 'transform-play-map-x', 'value', 'transform-play-transform', 'x'),
+      edge('transform-play-map-y-transform', 'transform-play-map-y', 'value', 'transform-play-transform', 'y'),
+      edge('transform-play-rotation-transform', 'transform-play-rotation', 'value', 'transform-play-transform', 'rotation'),
+      edge('transform-play-scale-transform', 'transform-play-scale', 'value', 'transform-play-transform', 'scale'),
+      edge('transform-play-field-transform', 'transform-play-field', 'frame', 'transform-play-transform', 'source'),
+      edge('transform-play-transform-display', 'transform-play-transform', 'frame', 'transform-play-display', 'source'),
     ],
   );
 }
@@ -456,6 +677,9 @@ const PRESET_FACTORIES: Readonly<
   'full-studio': createDefaultGraph,
   'beat-color': createBeatColorGraph,
   'two-world-mixer': createTwoWorldMixerGraph,
+  'control-math': createControlMathGraph,
+  'smooth-pointer': createSmoothPointerGraph,
+  'transform-playground': createTransformPlaygroundGraph,
   'pointer-bend': createPointerBendGraph,
   'mic-pulse-trails': createMicPulseTrailsGraph,
   'camera-dream': createCameraDreamGraph,

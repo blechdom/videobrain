@@ -36,7 +36,7 @@ The most common creative workflows seen across the real-time visual community ar
 
 ## Current proof of concept
 
-The app currently opens the permission-free **Signal Graph** with three signal types, a demand-rooted execution plan, WebGL2 multipass renderer, editor history, bounded JSON persistence, live diagnostics, responsive UI, and an accessible New patch menu with Blank Canvas plus seven complete starter graphs. Its model node defaults to a built-in visual preview; compatible external adapters are optional.
+The app currently opens the permission-free **Signal Graph** with three signal types, a demand-rooted execution plan, WebGL2 multipass renderer, editor history, bounded JSON persistence, live diagnostics, responsive UI, and an accessible New patch menu with Blank Canvas plus ten complete starter graphs. Its model node defaults to a built-in visual preview; compatible external adapters are optional.
 
 ### Implemented node catalog
 
@@ -48,6 +48,10 @@ The app currently opens the permission-free **Signal Graph** with three signal t
 | Control | ✅ Pointer | Normalized X/Y, held state, and one-tick press/release pulses from the output stage |
 | Control | ✅ XY Pad | Editable normalized X and Y outputs with direct two-axis control inside the node |
 | Control | ✅ Audio Level | Feedback-safe visual control only: normalized microphone energy with gain/floor controls and deterministic fallback; no playback, monitoring, recording, or audio pass-through |
+| Control | ✅ Constant | Reusable numeric value with a typed control output |
+| Control | ✅ Math | Add, subtract, multiply, divide, minimum, and maximum with input fallbacks |
+| Control | ✅ Map Range | Linear remapping with none, clamp, wrap, and fold boundary modes |
+| Control | ✅ Smooth | Frame-rate-independent rise/fall filtering with deterministic reset |
 | Text | ✅ AI Chat | Bounded positive/negative prompt authoring with a `text.utf8` prompt output |
 | Frame input | ✅ Video Input | Opt-in live camera frames with front/rear preference, cover/contain/stretch fit, and mirroring |
 | Frame model | ✅ Video Model | Built-in procedural visual preview plus compatible user-run WebSocket/HTTP adapter modes |
@@ -57,6 +61,7 @@ The app currently opens the permission-free **Signal Graph** with three signal t
 | Frame process | ✅ Blend | Normal, screen, add, and multiply composition of two frames |
 | Frame process | ✅ Trails | Retained-frame accumulation with feedback control |
 | Frame process | ✅ Color Grade | Hue, exposure, contrast, and saturation adjustment |
+| Frame process | ✅ Transform 2D | Translation, scale, rotation, pivot, and transparent/clamp/repeat/mirror edge behavior |
 | Output | ✅ Display | Marks a frame path for presentation on the output stage |
 
 ### Implemented application modules
@@ -67,6 +72,8 @@ The app currently opens the permission-free **Signal Graph** with three signal t
 - ✅ Parameter inspector with gesture-aware undo history.
 - ✅ Numeric, select, and bounded text parameters remain visible as compact controls inside their nodes.
 - ✅ Direct two-axis XY control with independently connectable outputs, native axis sliders, keyboard interaction, and live axis values.
+- ✅ Reusable constants, arithmetic, range mapping, and rise/fall smoothing.
+- ✅ Transform 2D with independently connectable translation, scale, and rotation.
 - ✅ Play, pause, deterministic reset, display-synced/60/30 fps monitor pacing,
   rolling FPS, and GPU-pass diagnostics.
 - ✅ Beat/bar timing and pointer position/held/press/release signals.
@@ -86,9 +93,9 @@ aid, not a separate commitment or priority system.
 
 | Area | Representative unbuilt work | Complete list |
 | --- | --- | --- |
-| Control and mapping | Constant, Math, Map Range, Smooth/Slew, logic, triggers, envelopes, timers, sequencing, and automation | [Control, events, and timing](#control-events-and-timing) |
+| Control and mapping | Compare, logic, gates, triggers, envelopes, timers, sequencing, vectors, and automation | [Control, events, and timing](#control-events-and-timing) |
 | Frame sources | Solid/gradient/noise/shape/text, image and video files, screen capture, playlists, browser/network media, and custom shader sources | [Frame sources and media](#frame-sources-and-media) |
-| Image processing | Transform 2D, crop/resize, blur, levels, keying/mattes, composite/switch, displacement, bloom, time effects, and projection warp | [Frame processing and compositing](#frame-processing-and-compositing) |
+| Image processing | Crop/resize, blur, levels, keying/mattes, composite/switch, displacement, bloom, time effects, and projection warp | [Frame processing and compositing](#frame-processing-and-compositing) |
 | Audio | Audio Device In, file playback, FFT/band/beat/pitch analysis, explicit Audio Output/Monitor, mixing, effects, and recording | [Audio analysis and processing](#audio-analysis-and-processing) |
 | Data and networking | JSON/CSV/text tools, fetch, WebSocket, MQTT, WebRTC data, OSC and lighting gateways, and record/replay | [Data, text, and networking](#data-text-and-networking-nodes) |
 | Vision and ML | Motion/blobs, face/hand/body tracking, segmentation, depth, point clouds, detection, and advanced model effects | [Computer vision, tracking, and ML](#computer-vision-tracking-and-ml) |
@@ -132,10 +139,10 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 | Priority | Node/module | Purpose |
 | --- | --- | --- |
 | P0 | ✅ Transport Time, Beat Clock, Oscillator, Pointer, XY Pad, Audio Level | Existing timing, interaction, and modulation baseline |
-| P1 | 🚧 Constant | Reusable numeric value with named output |
-| P1 | 🚧 Math | Add, subtract, multiply, divide, modulo, power, min, and max |
-| P1 | 🚧 Map Range | Remap, clamp, wrap, fold, and optionally ease a range |
-| P1 | 🚧 Smooth / Slew | Attack/release or rise/fall filtering for noisy controls |
+| P1 | ✅ Constant | Reusable numeric value with a typed output |
+| P1 | ✅ Math | Add, subtract, multiply, divide, minimum, and maximum |
+| P1 | ✅ Map Range | Linear remapping with none, clamp, wrap, and fold boundaries |
+| P1 | ✅ Smooth / Slew | Frame-rate-independent rise/fall filtering for noisy controls |
 | P1 | 🚧 Compare | Equal, greater, less, inside range, and changed |
 | P1 | 🚧 Logic | AND, OR, XOR, NOT for boolean/event work |
 | P1 | 🚧 Gate / Switch | Route one control from several sources |
@@ -192,7 +199,7 @@ Conversions should be explicit nodes: scalar-to-vector, spectrum-band-to-scalar,
 | Priority | Node/module | Purpose |
 | --- | --- | --- |
 | P0 | ✅ Warp, Blend, Trails, Color Grade | Existing multipass processing core |
-| P1 | 🚧 Transform 2D | Translate, scale, rotate, pivot, aspect fit, repeat, and edge mode |
+| P1 | ✅ Transform 2D | Translate, scale, rotate, pivot, and transparent/clamp/repeat/mirror edge modes |
 | P1 | 🚧 Crop / Fit | Crop, letterbox, cover, contain, and safe-area guides |
 | P1 | 🚧 Resize | Explicit resolution and filtering boundary |
 | P1 | 🚧 Blur | Separable Gaussian/box blur with bounded radius |
@@ -445,7 +452,7 @@ Keep these paths distinct in product language and implementation:
 
 ## Example patch and preset library
 
-Arrows show the primary signal path. A semicolon separates modulation. Nodes not yet shipped are marked with their roadmap status. The current New patch menu ships Blank Canvas plus seven named examples below: Full Studio, Beat-Synced Color, Pointer Bend, Camera Dream, Mic Pulse Trails, Two-World Mixer, and Prompted Visual Preview. Choosing one is an undoable, validated graph replacement; it stops device/model sessions and clears transient credentials. A future gallery should add thumbnails, learning goals, required capabilities, expected GPU cost, output aspect, and a "restore original" action.
+Arrows show the primary signal path. A semicolon separates modulation. Nodes not yet shipped are marked with their roadmap status. The current New patch menu ships Blank Canvas plus ten named examples below: Full Studio, Beat-Synced Color, Two-World Mixer, Control Math, Smooth Pointer, Transform Playground, Pointer Bend, Mic Pulse Trails, Camera Dream, and Prompted Visual Preview. Choosing one is an undoable, validated graph replacement; it stops device/model sessions and clears transient credentials. A future gallery should add thumbnails, learning goals, required capabilities, expected GPU cost, output aspect, and a "restore original" action.
 
 ### Beginner: learn one idea at a time
 
@@ -497,25 +504,46 @@ Arrows show the primary signal path. A semicolon separates modulation. Nodes not
 
    Edit bounded prompt text and explore strength, guidance, and seed while the safe built-in preview makes no network request.
 
-9. **Poster Maker — P1**
+9. **Control Math — available in New patch**
+
+   `Oscillator → Math.A; Constant → Math.B; Math → Map Range → Blend.Mix; Flow Field + Cells → Blend → Display`
+
+   Teaches reusable values, arithmetic, and explicit conversion from a scaled
+   wave to the normalized range expected by a visual mix.
+
+10. **Smooth Pointer — available in New patch**
+
+    `Pointer.X → Map Range → Smooth → Transform 2D.X; Flow Field → Transform 2D → Color Grade → Display`
+
+    Centers normalized pointer input and adds separate rise/fall response before
+    it moves a frame. Every teaching node is on the Display-reachable path.
+
+11. **Transform Playground — available in New patch**
+
+    `XY Pad.X/Y → Map Range → Transform 2D.X/Y; Oscillator → Map Range → Transform 2D.Rotation; Constant → Transform 2D.Scale`
+
+    Provides hands-on translation, mapped automatic rotation, reusable scale,
+    pivot controls, and visible edge modes in one complete graph.
+
+12. **Poster Maker — P1**
 
    `Gradient 🚧 → Text 🚧 → Composite 🚧 → Color Grade → Display`
 
    A still-first exercise suitable for screenshots.
 
-10. **Feedback Basics — available as a manual recipe**
+13. **Feedback Basics — available as a manual recipe**
 
    `Cells → Warp → Trails → Display; Oscillator → Trails.Feedback`
 
    Explains why retained state differs from a normal graph cycle.
 
-11. **Shape Rhythm — P1**
+14. **Shape Rhythm — P1**
 
-   `Shape 🚧 → Transform 2D 🚧 → Display; Oscillator → Transform.Rotate`
+   `Shape 🚧 → Transform 2D → Display; Oscillator → Map Range → Transform 2D.Rotation`
 
    Covers pivots and mapped modulation.
 
-12. **Image Remix — P1**
+15. **Image Remix — P1**
 
     `Image File 🚧 → Kaleidoscope 🚧 → Color Grade → Display`
 
@@ -531,9 +559,9 @@ Arrows show the primary signal path. A semicolon separates modulation. Nodes not
 
    `Audio Device In 🚧 → Spectrum 🚧 → Band Energy 🚧 → Instance 🧭 → Render 3D 🧭 → Bloom 🧭 → Display`.
 
-3. **Camera Feedback Tunnel — current/P1**
+3. **Camera Feedback Tunnel — available as a manual recipe**
 
-   `Video Input → Transform 2D 🚧 → Trails → Color Grade → Display; Audio Level → Transform.Scale`.
+   `Video Input → Transform 2D → Trails → Color Grade → Display; Audio Level → Map Range → Transform 2D.Scale`.
 
 4. **Four-camera Switcher — P2**
 
@@ -549,7 +577,7 @@ Arrows show the primary signal path. A semicolon separates modulation. Nodes not
 
 7. **MIDI Performance Rack — P1/P2**
 
-   `Macro Controls 🚧 → visual parameters; MIDI In 🧭 → Map Range 🚧 → Macro Controls` with learn, takeover, and feedback.
+   `Macro Controls 🚧 → visual parameters; MIDI In 🧭 → Map Range → Macro Controls` with learn, takeover, and feedback.
 
 8. **Phrase-synced Scene Bank — P2**
 
@@ -613,7 +641,7 @@ Arrows show the primary signal path. A semicolon separates modulation. Nodes not
 
 9. **EEG Aura — P2/bridge**
 
-   `BLE EEG 🧭 or gateway 🧩 → Smooth 🚧 → Flow Field/particles → Display`; never store biometric data by default.
+   `BLE EEG 🧭 or gateway 🧩 → Smooth → Flow Field/particles → Display`; never store biometric data by default.
 
 10. **Environmental Data Sculpture — P2**
 
@@ -805,8 +833,8 @@ The app should include a capability center listing which nodes want camera, micr
 
 - Harden camera input and add screen/image/video-file sources.
 - Harden the current model adapter contract with conformance fixtures, cancellation, capability negotiation, and explicit source-upload semantics.
-- Add Constant, Math, Map Range, Smooth, Compare, Trigger, and Vector controls.
-- Add Transform, Crop/Fit, Resize, Blur, Levels, Key/Mask, Composite, Switch, and Displace.
+- Add Compare, Trigger, Vector, Gate, Envelope, and sequencing controls.
+- Add Crop/Fit, Resize, Blur, Levels, Key/Mask, Composite, Switch, and Displace.
 - Add spectrum/band/onset analysis while keeping sample-rate work out of the visual frame loop.
 - Add grouping, named parameters, presets, macro controls, asset bin, and a preset gallery.
 - Add snapshot/recording, capability center, improved diagnostics, and adaptive-resolution experiments.
@@ -860,7 +888,8 @@ Open an issue or discussion describing:
 - Add focused unit tests plus an end-to-end path when user interaction changes.
 - Verify `npm run verify` and browser smoke tests.
 - Update Help/About and this roadmap when current behavior changes.
-- Include an example patch for creative nodes whenever practical.
+- Include a bundled example where every new node is reachable from Display;
+  extend the all-node preset coverage test so this remains true over time.
 - Document any remote data transfer, permission, experimental API, or gateway requirement.
 
 ## Browser API reading list

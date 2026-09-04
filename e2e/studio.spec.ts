@@ -137,12 +137,21 @@ test('starts blank and example graphs from the New patch menu', async ({
   await trigger.click();
   const menu = page.getByRole('menu', { name: 'New patch starters' });
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('menuitem')).toHaveCount(8);
+  await expect(menu.getByRole('menuitem')).toHaveCount(11);
   await expect(
     menu.getByRole('menuitem', { name: /Blank Canvas/ }),
   ).toBeFocused();
   await expect(
     menu.getByRole('menuitem', { name: /Beat-Synced Color/ }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: /Control Math/ }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: /Smooth Pointer/ }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: /Transform Playground/ }),
   ).toBeVisible();
   await expect(
     menu.getByRole('menuitem', { name: /Camera Dream/ }),
@@ -224,6 +233,71 @@ test('starts blank and example graphs from the New patch menu', async ({
   expect(
     (mobileMenuBounds?.x ?? 0) + (mobileMenuBounds?.width ?? 391),
   ).toBeLessThanOrEqual(390);
+});
+
+test('runs every foundation node inside a visible starter graph', async ({
+  page,
+}) => {
+  const trigger = page.getByRole('button', { name: 'New patch' });
+  const canvas = page.locator('canvas.preview-canvas');
+
+  const loadStarter = async (title: string) => {
+    await trigger.click();
+    page.once('dialog', (dialog) => {
+      void dialog.accept();
+    });
+    await page.getByRole('menuitem', { name: new RegExp(title) }).click();
+    await expect(page.getByText(`${title} loaded.`)).toBeVisible();
+    await expect(canvas).toHaveAttribute('data-rendered', 'true');
+    await page.getByRole('button', { name: 'Pause' }).click();
+    await expect(page.getByText('held', { exact: true })).toBeVisible();
+    await expect
+      .poll(() => renderedColorSignal(page), { timeout: 10_000 })
+      .toBeGreaterThan(0);
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect(page.getByText('running', { exact: true })).toBeVisible();
+  };
+
+  await loadStarter('Control Math');
+  await expect(
+    page
+      .locator('article[aria-label="Constant node"]')
+      .getByRole('slider', { name: 'Constant Value' }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator('article[aria-label="Math node"]')
+      .getByRole('slider', { name: 'Math A' }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator('article[aria-label="Map Range node"]')
+      .getByRole('slider', { name: 'Map Range Output max' }),
+  ).toBeVisible();
+
+  await loadStarter('Smooth Pointer');
+  await expect(
+    page
+      .locator('article[aria-label="Smooth node"]')
+      .getByRole('slider', { name: 'Smooth Rise (s)' }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator('article[aria-label="Transform 2D node"]')
+      .getByRole('slider', { name: 'Transform 2D X' }),
+  ).toBeVisible();
+
+  await loadStarter('Transform Playground');
+  await expect(
+    page
+      .locator('article[aria-label="Transform 2D node"]')
+      .getByRole('slider', { name: 'Transform 2D Rotation' }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator('article[aria-label="XY Pad node"]')
+      .getByRole('button', { name: 'XY Pad Position' }),
+  ).toBeVisible();
 });
 
 test('stops active device sessions before replacing a patch', async ({

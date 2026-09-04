@@ -59,6 +59,7 @@ export {
 } from './compiler';
 export { DEFAULT_GRAPH, createDefaultGraph } from './defaultGraph';
 export {
+  FOUNDATION_NODE_EXAMPLES,
   GRAPH_PRESETS,
   createGraphPreset,
   getGraphPreset,

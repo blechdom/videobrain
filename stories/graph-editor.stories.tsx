@@ -4,6 +4,7 @@ import { GraphEditor } from '../src/components/GraphEditor';
 import type { OperatorInputRuntime } from '../src/components/operatorInputRuntime';
 import {
   GRAPH_SCHEMA_VERSION,
+  createGraphPreset,
   createGraphNode,
   validateConnection,
   type GraphDocument,
@@ -11,6 +12,7 @@ import {
   type GraphEndpoint,
   type GraphParamValue,
   type GraphPosition,
+  type GraphPresetId,
 } from '../src/graph';
 import './catalog.css';
 
@@ -60,9 +62,18 @@ function createStoryGraph(): GraphDocument {
   };
 }
 
-function GraphFixture({ playing }: { playing: boolean }) {
-  const [document, setDocument] = useState(createStoryGraph);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>('field-story');
+interface GraphFixtureProps {
+  playing: boolean;
+  presetId: GraphPresetId | 'fixture';
+}
+
+function GraphFixture({ playing, presetId }: GraphFixtureProps) {
+  const [document, setDocument] = useState(() =>
+    presetId === 'fixture' ? createStoryGraph() : createGraphPreset(presetId),
+  );
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
+    presetId === 'fixture' ? 'field-story' : null,
+  );
   const [event, setEvent] = useState('Tune a node, move it, or reconnect a compatible port.');
   const nextEdgeId = useRef(1);
 
@@ -146,6 +157,10 @@ const meta = {
   tags: ['autodocs'],
   args: {
     playing: true,
+    presetId: 'fixture',
+  },
+  argTypes: {
+    presetId: { control: false },
   },
   parameters: {
     layout: 'fullscreen',
@@ -164,4 +179,37 @@ export const RunningPatch: Story = {};
 
 export const PausedPatch: Story = {
   args: { playing: false },
+};
+
+export const ControlMathExample: Story = {
+  args: { presetId: 'control-math' },
+  parameters: {
+    docs: {
+      description: {
+        story: 'A complete Constant → Math → Map Range control chain crossfades two animated sources before Display.',
+      },
+    },
+  },
+};
+
+export const SmoothPointerExample: Story = {
+  args: { presetId: 'smooth-pointer' },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Pointer X is remapped, smoothed with separate rise and fall times, then routed into Transform 2D translation.',
+      },
+    },
+  },
+};
+
+export const TransformPlaygroundExample: Story = {
+  args: { presetId: 'transform-playground' },
+  parameters: {
+    docs: {
+      description: {
+        story: 'XY Pad controls mapped X/Y translation, an oscillator controls mapped rotation, and Constant holds scale on a complete frame path.',
+      },
+    },
+  },
 };

@@ -14,6 +14,10 @@ describe('HelpDialog', () => {
     expect(screen.getByText('Starter patches')).toBeVisible();
     expect(screen.getByText('Blank Canvas')).toBeVisible();
     expect(screen.getByText('Beat-Synced Color')).toBeVisible();
+    expect(screen.getByText('Control Math')).toBeVisible();
+    expect(screen.getByText('Smooth Pointer')).toBeVisible();
+    expect(screen.getByText('Transform Playground')).toBeVisible();
+    expect(screen.getByText(/every current node appears on a reachable branch/)).toBeVisible();
     expect(screen.getByText('Camera Dream')).toBeVisible();
     expect(screen.getByText(/Starting any new patch stops active camera/)).toBeVisible();
     expect(screen.getByText('Nodes available now')).toBeVisible();
@@ -24,6 +28,10 @@ describe('HelpDialog', () => {
       screen.getByText('A hands-on pair of normalized control signals.'),
     ).toBeVisible();
     expect(screen.getByText('Two-axis color control')).toBeVisible();
+    expect(screen.getByText('Control arithmetic and mapping')).toBeVisible();
+    expect(screen.getByText('Smoothed pointer motion')).toBeVisible();
+    expect(screen.getByText('Two-dimensional transform controls')).toBeVisible();
+    expect(screen.getByText('Ten patches to try')).toBeVisible();
     expect(screen.getByText('Audio-reactive trails')).toBeVisible();
     expect(screen.getByText('Beat-locked motion')).toBeVisible();
     expect(screen.getByText('Model connector preview')).toBeVisible();

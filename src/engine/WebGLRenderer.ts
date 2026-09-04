@@ -63,6 +63,11 @@ interface VideoModelTexture {
   dirty: boolean;
 }
 
+interface SmoothControlState {
+  value: number;
+  time: number;
+}
+
 const DEFAULT_POINTER: RenderPointer = Object.freeze({
   x: 0.5,
   y: 0.5,
@@ -168,6 +173,21 @@ function videoFitIndex(fit: string): number {
   }
 }
 
+function transformEdgeModeIndex(mode: string): number {
+  switch (mode) {
+    case 'transparent':
+      return 0;
+    case 'clamp':
+      return 1;
+    case 'repeat':
+      return 2;
+    case 'mirror':
+      return 3;
+    default:
+      return 0;
+  }
+}
+
 interface VideoFrameSource {
   readonly readyState: number;
   readonly videoWidth: number;
@@ -237,6 +257,7 @@ export class WebGLRenderer {
   private nodeResources = new Map<string, NodeResources>();
   private outputTextures = new Map<string, WebGLTexture>();
   private controlValues = new Map<string, number>();
+  private smoothControlStates = new Map<string, SmoothControlState>();
   private vertexArray: WebGLVertexArrayObject | null = null;
   private blackTexture: WebGLTexture | null = null;
   private videoTexture: WebGLTexture | null = null;
@@ -394,6 +415,16 @@ export class WebGLRenderer {
         throw applyError;
       }
     }
+    const smoothNodeIds = new Set(
+      validatedGraph.document.nodes
+        .filter(({ kind }) => kind === 'smooth')
+        .map(({ id }) => id),
+    );
+    for (const nodeId of this.smoothControlStates.keys()) {
+      if (!smoothNodeIds.has(nodeId)) {
+        this.smoothControlStates.delete(nodeId);
+      }
+    }
   }
 
   resize(width: number, height: number, pixelRatio = 1): void {
@@ -524,13 +555,14 @@ export class WebGLRenderer {
     this.frameRate.reset();
     this.lastPassCount = 0;
     this.controlValues.clear();
+    this.smoothControlStates.clear();
     this.outputTextures.clear();
     for (const resources of this.nodeResources.values()) {
       resources.nextTargetIndex = 0;
       for (const target of resources.targets) {
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target.framebuffer);
         this.gl.viewport(0, 0, target.width, target.height);
-        this.gl.clearColor(0, 0, 0, 1);
+        this.gl.clearColor(0, 0, 0, 0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
       }
     }
@@ -568,6 +600,7 @@ export class WebGLRenderer {
     this.programs.clear();
     this.outputTextures.clear();
     this.controlValues.clear();
+    this.smoothControlStates.clear();
     this.blackTexture = null;
     this.videoTexture = null;
     this.videoSource = null;
@@ -590,6 +623,7 @@ export class WebGLRenderer {
     this.nodeResources.clear();
     this.outputTextures.clear();
     this.controlValues.clear();
+    this.smoothControlStates.clear();
     this.programs.clear();
     this.blackTexture = null;
     this.videoTexture = null;
@@ -995,7 +1029,7 @@ export class WebGLRenderer {
       throw new RendererError('An offscreen frame is incomplete.');
     }
     gl.viewport(0, 0, this.renderWidth, this.renderHeight);
-    gl.clearColor(0, 0, 0, 1);
+    gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);
@@ -1086,6 +1120,101 @@ export class WebGLRenderer {
             value = Math.sin(cycle * TWO_PI) * 0.5 + 0.5;
         }
         this.setControl(node.id, 'value', offset + value * amplitude);
+        return;
+      }
+      case 'constant':
+        this.setControl(
+          node.id,
+          'value',
+          this.numberParam(compiledNode, 'value'),
+        );
+        return;
+      case 'math': {
+        const a = this.controlInput(
+          compiledNode,
+          'a',
+          this.numberParam(compiledNode, 'a'),
+        );
+        const b = this.controlInput(
+          compiledNode,
+          'b',
+          this.numberParam(compiledNode, 'b'),
+        );
+        let value: number;
+        switch (this.stringParam(compiledNode, 'operation')) {
+          case 'subtract':
+            value = a - b;
+            break;
+          case 'multiply':
+            value = a * b;
+            break;
+          case 'divide':
+            value = b === 0 ? 0 : a / b;
+            break;
+          case 'min':
+            value = Math.min(a, b);
+            break;
+          case 'max':
+            value = Math.max(a, b);
+            break;
+          default:
+            value = a + b;
+        }
+        this.setControl(node.id, 'value', value);
+        return;
+      }
+      case 'mapRange': {
+        const input = this.controlInput(compiledNode, 'value', 0);
+        const inputMin = this.numberParam(compiledNode, 'inMin');
+        const inputMax = this.numberParam(compiledNode, 'inMax');
+        const outputMin = this.numberParam(compiledNode, 'outMin');
+        const outputMax = this.numberParam(compiledNode, 'outMax');
+        const inputSpan = inputMax - inputMin;
+        let position = inputSpan === 0 ? 0 : (input - inputMin) / inputSpan;
+        position = finiteOr(position, 0);
+        switch (this.stringParam(compiledNode, 'boundary')) {
+          case 'clamp':
+            position = clamp(position, 0, 1);
+            break;
+          case 'wrap':
+            position = ((position % 1) + 1) % 1;
+            break;
+          case 'fold': {
+            const folded = ((position % 2) + 2) % 2;
+            position = folded <= 1 ? folded : 2 - folded;
+            break;
+          }
+          default:
+            break;
+        }
+        this.setControl(
+          node.id,
+          'value',
+          finiteOr(outputMin + (outputMax - outputMin) * position, outputMin),
+        );
+        return;
+      }
+      case 'smooth': {
+        const initial = this.numberParam(compiledNode, 'initial');
+        const input = this.controlInput(compiledNode, 'value', initial);
+        const previous = this.smoothControlStates.get(node.id);
+        if (!previous || time < previous.time) {
+          this.smoothControlStates.set(node.id, { value: initial, time });
+          this.setControl(node.id, 'value', initial);
+          return;
+        }
+        const duration = this.numberParam(
+          compiledNode,
+          input >= previous.value ? 'rise' : 'fall',
+        );
+        const elapsed = Math.max(0, time - previous.time);
+        const blend = duration === 0 ? 1 : 1 - Math.exp(-elapsed / duration);
+        const value = finiteOr(
+          previous.value + (input - previous.value) * blend,
+          input,
+        );
+        this.smoothControlStates.set(node.id, { value, time });
+        this.setControl(node.id, 'value', value);
         return;
       }
       case 'pointer':
@@ -1256,6 +1385,76 @@ export class WebGLRenderer {
           program,
           'uContrast',
           this.numberParam(compiledNode, 'contrast'),
+        );
+        break;
+      }
+      case 'transform2d': {
+        this.bindTexture(
+          program,
+          'uSource',
+          this.frameInput(compiledNode, 'source'),
+          0,
+        );
+        this.uniform2f(
+          program,
+          'uTranslate',
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'x',
+              this.numberParam(compiledNode, 'x'),
+            ),
+            -1,
+            1,
+          ),
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'y',
+              this.numberParam(compiledNode, 'y'),
+            ),
+            -1,
+            1,
+          ),
+        );
+        this.uniform1f(
+          program,
+          'uScale',
+          clamp(
+            this.controlInput(
+              compiledNode,
+              'scale',
+              this.numberParam(compiledNode, 'scale'),
+            ),
+            0.1,
+            4,
+          ),
+        );
+        this.uniform1f(
+          program,
+          'uRotation',
+          (clamp(
+            this.controlInput(
+              compiledNode,
+              'rotation',
+              this.numberParam(compiledNode, 'rotation'),
+            ),
+            -180,
+            180,
+          ) *
+            Math.PI) /
+            180,
+        );
+        this.uniform2f(
+          program,
+          'uPivot',
+          clamp(this.numberParam(compiledNode, 'pivotX'), 0, 1),
+          clamp(this.numberParam(compiledNode, 'pivotY'), 0, 1),
+        );
+        this.uniform1f(
+          program,
+          'uEdgeMode',
+          transformEdgeModeIndex(this.stringParam(compiledNode, 'edgeMode')),
         );
         break;
       }

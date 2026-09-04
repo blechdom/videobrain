@@ -75,7 +75,7 @@ Initial data types are:
 | `record` | Structured or tabular data | Future |
 | `geometry` | Points, attributes, and primitives | Future |
 
-Parameter modulation is part of the dependency graph. Numeric parameters may expose a `control.f32` input, while their literal project value remains available when no edge supplies that input. Explicit mapping policies are a future extension.
+Parameter modulation is part of the dependency graph. Numeric parameters may expose a `control.f32` input, while their literal project value remains available when no edge supplies that input. Map Range makes scaling, offsetting, clamping, wrapping, and folding explicit in the graph; richer per-port mapping policies remain a future extension.
 
 ### Producer, processor, and output
 
@@ -176,7 +176,7 @@ A renderer interface isolates graph semantics from WebGL2 details. A future WebG
 
 ## Control path
 
-The CPU control runtime evaluates small values rather than image-sized buffers. POC control nodes include monotonic Transport Time, tempo-locked Beat Clock, periodic waves, an editable normalized XY source, pointer position/held/press/release, and optional media level analysis. Constants, arithmetic, range mapping, and smoothing are future node additions.
+The CPU control runtime evaluates small values rather than image-sized buffers. POC control nodes include monotonic Transport Time, tempo-locked Beat Clock, periodic waves, reusable constants, arithmetic, range mapping, rise/fall smoothing, an editable normalized XY source, pointer position/held/press/release, and optional media level analysis.
 
 The monitor owns one `requestAnimationFrame` scheduler. Display-sync mode renders
 on every callback; fixed 60 fps and 30 fps modes select slots from an anchored
