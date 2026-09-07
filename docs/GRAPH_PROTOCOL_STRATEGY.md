@@ -1,8 +1,8 @@
 # Graph Protocol Strategy
 
-Status: the read-only catalog and graph-inspection foundation is implemented.
-Transport adapters, remote sessions, and graph mutation transactions are future
-work.
+Status: the read-only catalog and graph-inspection foundation plus a local stdio
+MCP adapter are implemented. Live-browser inspection, remote sessions, and graph
+mutation transactions are future work.
 
 ## Why this exists
 
@@ -64,9 +64,16 @@ must not encourage an unsafe mutation shortcut.
   orders, per-node execution metadata, aggregate visual passes/render targets,
   and reachable stateful node IDs.
 
-Both functions return detached data rather than mutable registry objects. They
-are useful now for tests, developer tools, and future adapters. No HTTP,
-WebSocket, command-line, or MCP server is exposed by the application yet.
+Both functions return detached data rather than mutable registry objects. The
+local stdio server in `server/` exposes them as `get_operator_catalog` and
+`inspect_graph`. The latter runs a caller-supplied JSON object through the
+production project parser before inspection; compiler diagnostics are a valid
+inspection result rather than a transport failure.
+
+This adapter is offline and read-only. It does not inspect an open browser,
+accept paths or URLs, render previews, or expose files, Git, shell commands,
+network access, or graph mutation. No HTTP or WebSocket graph-protocol endpoint
+exists.
 
 ## Governing graph invariants
 
@@ -360,10 +367,18 @@ tests, and a future authenticated network API. The adapter should translate
 tool calls into catalog queries, graph inspection, and validated transactions;
 it should not invent node definitions or bypass the compiler.
 
-The in-process catalog and inspection layer comes first so every adapter reports
-the same truth. A transport layer comes later, after authentication, origin
-policy, transaction limits, user-presence requirements for devices, and preview
-bandwidth limits are specified.
+The implemented local stdio adapter exposes only the complete catalog and
+offline inspection of a supplied `GraphDocument`. Both tools are deterministic,
+closed-world, bounded, and annotated read-only. Their successful structured
+results use stable `catalog` and `inspection` envelopes and preserve the
+versions returned by the underlying production APIs. Parser/schema/size errors
+are tool errors; compiler issues remain structured inspection diagnostics.
+
+Live-session and mutation transports come later, after authentication, origin
+policy, revision checks, idempotent request IDs, transaction limits,
+user-presence requirements for devices, and preview bandwidth limits are
+specified. Those transports must continue to report the same registry and
+compiler truth.
 
 ## Module-development gate
 

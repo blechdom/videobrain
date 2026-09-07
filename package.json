@@ -9,27 +9,34 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:mcp": "vite build --config vite.mcp.config.ts",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
+    "test:mcp": "vitest run tests/mcpServer.test.ts",
+    "smoke:mcp": "node scripts/smoke-mcp.mjs",
+    "mcp": "node dist-mcp/videobrain-mcp.mjs",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006 --no-open",
     "build:storybook": "storybook build",
     "build:deploy": "npm run build && npm run build:storybook -- --output-dir dist/storybook",
     "check:storybook-dist": "node scripts/check-storybook-artifact.mjs dist/storybook",
-    "verify": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run build && npm run build:mcp && npm run smoke:mcp",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
     "@xyflow/react": "^12.11.6",
     "lucide-react": "^1.40.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "zustand": "^5.0.15"
+    "zustand": "^5.0.15",
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/client": "2.0.0",
     "@playwright/test": "^1.62.1",
     "@storybook/addon-a11y": "10.5.10",
     "@storybook/addon-docs": "10.5.10",

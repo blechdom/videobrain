@@ -49,8 +49,9 @@ needs, and the smallest useful example graph.
 This research should be weighted strongly when it is relevant, but it is not a
 mandatory release gate and does not define VideoBrain's names, UI, saved format,
 or runtime. The local registry and compiler remain the single source of truth.
-Any future MCP or network adapter must expose that same truth through versioned
-inspection and validated commands rather than building a second graph model.
+The implemented read-only MCP adapter and any future network adapter must expose
+that same truth through versioned inspection and validated commands rather than
+building a second graph model.
 The complete guidance is in
 [Graph Protocol Strategy](GRAPH_PROTOCOL_STRATEGY.md#research-informed-design-practice).
 
@@ -215,7 +216,8 @@ reveals every matching group so a collapsed category never hides a result.
 - ✅ Read-only operator catalog and graph inspection with stable IDs, explicit
   port indexes, parameter-layout hints, bindings, reachability, diagnostics,
   execution orders, per-kind execution metadata, aggregate visual-pass/target
-  costs, and reachable stateful-node IDs.
+  costs, and reachable stateful-node IDs, exposed in-process and through a local
+  stdio MCP adapter for caller-supplied project snapshots.
 - ✅ A reachable teaching preset and component-catalog story for every current
   node kind.
 - ✅ Static HTTPS deployment design using private object storage and a CDN.
@@ -1008,6 +1010,9 @@ A useful initial gallery is 15 excellent, legible examples rather than 100 fragi
 - Keep project-schema, operator-catalog, and protocol versions independent.
 - Derive catalog and inspection responses from the real registry and compiler;
   do not maintain a second list of graph semantics for integrations.
+- Preserve the local MCP adapter's narrow boundary: catalog discovery and
+  offline inspection of caller-supplied documents only. Live-browser state,
+  previews, and mutation remain future authenticated capabilities.
 - Preserve the implemented per-kind pass/target/state metadata and aggregate
   plan costs; expand inspection with clock dependencies, actual texture bytes
   and resolution, capability readiness, dirty/static state, last duration, and

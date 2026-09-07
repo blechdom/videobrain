@@ -130,13 +130,30 @@ The project file is versioned JSON. The POC rejects unsupported schemas or node 
 
 ### Read-only graph protocol
 
-The application now exposes an in-process operator catalog and graph inspection
-surface from the same registry and compiler used at runtime. Catalog inspection
+The application exposes an in-process operator catalog and graph inspection
+surface from the same registry and compiler used at runtime. A separate local
+stdio MCP adapter exposes that surface without joining the browser runtime:
+
+```text
+MCP client -- stdio --> read-only adapter --> production operator catalog
+                                      |
+                                      +--> project parser --> compiler inspection
+```
+
+Catalog inspection
 reports typed/indexed ports, parameter contracts and layout hints, static
 execution costs, graph limits, and versions. Graph inspection reports input
 bindings, validation issues, output-root reachability, inactive nodes, execution
 order, aggregate visual-pass/render-target cost, and reachable stateful nodes
 without rendering or mutating a project.
+
+The MCP adapter accepts a caller-supplied project snapshot; it does not read the
+currently open Signal Graph. It exposes no file, repository, shell, network,
+credential, live-editor, or mutation capability. The adapter serializes input
+through the canonical project parser so its byte, node, edge, schema, and
+parameter limits remain the same as browser import. MCP output is deterministic,
+bounded, and carries the same independent graph protocol, schema, and catalog
+versions as the in-process APIs.
 
 Project schema, operator catalog, and inspection protocol versions are separate
 compatibility axes. Stable node UUIDs plus serialized kind, port, and parameter
@@ -340,6 +357,7 @@ The browser does not host or launch the model and does not translate arbitrary v
 | Persistence | Load, validate, save, autosave | Live GPU objects |
 | Diagnostics | Errors, evaluation counts, timing summaries | Unthrottled project writes |
 | Protocol inspection | Catalog contracts, bindings, reachability, execution order | A second graph model or unvalidated mutations |
+| Local MCP adapter | Stdio translation for catalog and caller-supplied graph inspection | Browser state, files, commands, network access, or mutation |
 
 Dependency direction should remain one-way: the editor issues commands to the project store; the planner consumes project snapshots; runtimes consume plans; diagnostics flow back as read-only observations.
 

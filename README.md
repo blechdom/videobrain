@@ -29,6 +29,8 @@ The proof of concept opens into a working composition and runs locally without a
 - Undo and redo for project edits
 - Versioned local autosave plus JSON import and export
 - Transactional import validation with bounded graph and GPU resource budgets
+- A local read-only MCP server for the production operator catalog and offline
+  graph inspection
 - Responsive editor layout and keyboard shortcuts
 - Built-in Help & About guide with quick-start recipes and contribution links
 - A production component catalog at [videobrain.org/storybook](https://videobrain.org/storybook/)
@@ -58,6 +60,42 @@ npm run storybook
 
 Build the complete deployable site, including the catalog, with
 `npm run build:deploy`.
+
+### Read-only MCP graph inspection
+
+Build the local stdio server separately from the browser application:
+
+```bash
+npm run build:mcp
+```
+
+Configure an MCP host to launch the built entry directly with Node, replacing
+the example path with an absolute path to this checkout:
+
+```json
+{
+  "mcpServers": {
+    "videobrain": {
+      "command": "node",
+      "args": ["/absolute/path/to/videobrain/dist-mcp/videobrain-mcp.mjs"]
+    }
+  }
+}
+```
+
+Launching the built file directly keeps stdout reserved for MCP protocol
+frames. The server exposes exactly `get_operator_catalog` and `inspect_graph`.
+The first returns the versioned production registry; the second validates and
+compiles a caller-supplied `GraphDocument` and returns diagnostics,
+reachability, execution order, typed bindings, and resource costs. It does not
+read the graph open in a browser or render or modify a project.
+
+This first adapter has no filesystem, Git, shell, npm, network, credential,
+telemetry, persistence, HTTP, WebSocket, or live-editor access. Its input uses
+the production project parser and existing 1,000,000-byte, 128-node, and
+512-edge limits. Run `npm run test:mcp`, then `npm run build:mcp` and
+`npm run smoke:mcp`, to check the in-memory tool contract and the built stdio
+process.
 
 ## Controls
 
@@ -184,6 +222,7 @@ stories/         Production-component examples and state matrices
 docs/            Architecture and MVP decision records
 infra/           CloudFormation for the production static site
 scripts/         Infrastructure bootstrap and manual deployment helpers
+server/          Local read-only MCP adapter and stdio entry point
 ```
 
 The editor never owns GPU resources, and the renderer never mutates the project. See [the architecture](docs/ARCHITECTURE.md), [the graph protocol strategy](docs/GRAPH_PROTOCOL_STRATEGY.md), [the MVP decision](docs/MVP.md), the [model connector protocol](docs/MODEL_CONNECTORS.md), and the comprehensive [future-development catalog](docs/FUTURE_DEVELOPMENT.md) for the reasoning, compatibility rules, node roadmap, I/O options, adapter boundary, and example patches.
