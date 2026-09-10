@@ -447,3 +447,25 @@ The read-only catalog/inspection protocol advances alongside every wave. An
 authenticated transport and safe mutation API come after migrations,
 capability negotiation, and atomic revision handling are proven locally; they
 are an architecture track, not a shortcut around the node gate.
+
+
+## Implemented AudioBrain parameter transport
+
+`brain.control.v1` is a deliberately bounded session integration for existing
+numeric parameters. A user-created popup and explicit receiver grant identify
+an allowlisted AudioBrain origin and exact peer window. Messages carry a random
+session nonce, increasing sequence, type and a named finite numeric control.
+Handshake, origin/source/session validation, replay rejection, 4 KiB size limits,
+64 mapped channels, 60 controls per second and heartbeat cleanup are enforced
+before delivery. The UI permits eight mappings per session.
+
+Incoming values update selected saved literals through the existing registry
+and project-store validation. Outgoing values are selected saved literals;
+connected parameter resolution, renderer values and event/audio streams are
+outside this version. Consequently this does not introduce a new node kind,
+wire family, output demand root, schema version or catalog version. Full graph
+mutation, resolved-signal transport and atomic revision protocols remain separate
+planned extensions. Session identity and mappings are not serialized. New patch,
+project import and runtime reset revoke the pairing grant through the studio
+reset generation, including when node IDs are reused. See
+[AudioBrain integration](AUDIOBRAIN_INTEGRATION.md) for operation and restoration.

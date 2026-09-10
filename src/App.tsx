@@ -25,6 +25,7 @@ import {
 } from './graph';
 import type { RenderResult } from './engine';
 import { CommandPalette } from './components/CommandPalette';
+import { AudioBrainConnection } from './components/AudioBrainConnection';
 import { GraphEditor } from './components/GraphEditor';
 import { HelpDialog } from './components/HelpDialog';
 import type { OperatorFlowNode } from './components/OperatorNode';
@@ -463,6 +464,7 @@ function Studio() {
         />
       ) : null}
       {helpOpen ? <HelpDialog onClose={() => setHelpOpen(false)} /> : null}
+      <AudioBrainConnection key={resetToken} store={projectStore} />
       <div className="toast-region" aria-live="polite" aria-atomic="true">
         {toast ? <Toast key={toast.id} toast={toast} /> : null}
       </div>

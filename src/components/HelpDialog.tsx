@@ -424,6 +424,15 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
               action, and browser permission. Camera media stays local unless it
               is directly routed into an explicitly connected networked Video Model.
             </p>
+            <h3>Pairing AudioBrain controls</h3>
+            <p>
+              Open VideoBrain from AudioBrain's Connections panel, choose named
+              channels and numeric parameters, then click Pair AudioBrain.
+              Incoming values edit saved parameters; outgoing values are saved
+              literals. The panel stays paired when collapsed; New patch, import and
+              Return to frame zero disconnect it.{' '}
+              <a href={`${REPOSITORY_URL}/blob/main/docs/AUDIOBRAIN_INTEGRATION.md`} target="_blank" rel="noreferrer">AudioBrain integration guide</a>
+            </p>
             <h3>Using Audio Level</h3>
             <p>
               <strong>Audio Level analyzes sound; it does not produce sound.</strong>{' '}
