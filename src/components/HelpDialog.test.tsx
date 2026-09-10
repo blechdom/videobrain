@@ -76,6 +76,7 @@ describe('HelpDialog', () => {
       ),
     ).toBeVisible();
     expect(screen.getByText('Audio-controlled soft focus')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'AudioBrain integration guide' })).toHaveAttribute('href', 'https://github.com/blechdom/videobrain/blob/main/docs/AUDIOBRAIN_INTEGRATION.md');
     expect(screen.getByText('Audio-reactive trails')).toBeVisible();
     expect(screen.getByText('Spiralling recursive image')).toBeVisible();
     expect(

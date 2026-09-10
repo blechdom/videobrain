@@ -140,6 +140,17 @@ microphone sessions, closes model connections, and clears session-only model
 keys. Device-based starters remain in fallback mode until access is explicitly
 enabled again.
 
+### AudioBrain control pairing
+
+Open VideoBrain from AudioBrain's Connections panel, select named channels and
+numeric parameters, then explicitly pair the two windows. Incoming controls edit
+saved literals; outgoing controls publish the selected saved literals. Collapsing
+the panel keeps the connection. Disconnect keeps the current values, while
+Restore starting values returns incoming parameters to their pre-pair values.
+New patch, project import and Return to frame zero disconnect the session.
+See [AudioBrain integration](docs/AUDIOBRAIN_INTEGRATION.md) for the contract,
+limits and a bidirectional XY Pad example.
+
 ### Teaching examples
 
 | Starter | Nodes it teaches | Visible result |

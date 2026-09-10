@@ -398,6 +398,31 @@ or make safe flashes already present in an upstream frame.
 - User-authored shaders are deferred until they can be compiled in an isolated, cancellable workflow with clear diagnostics.
 - Imported projects are schema-versioned and validated before replacing the current graph.
 
+## AudioBrain session controls
+
+`AudioBrainConnection` appears only for a valid allowlisted pairing fragment and
+an opener window. The user selects numeric parameter mappings and explicitly
+connects. `connectMappedBrainParameters` validates targets through the production
+registry, applies incoming values using the project store's `setNodeParam`, and
+publishes selected saved literals from store observations. The renderer and
+compiler remain unchanged; wired-input precedence still belongs to the existing
+graph contract. This integration is not a resolved-signal or audio transport.
+
+The session owns its popup reference, nonce, mapping list, listeners and bounded
+20 Hz publication checks. The transport enforces 60 controls per second, dedupes
+unchanged values and direct echoes, verifies exact origin/source/session and
+sequence, and disposes listeners/subscriptions/timers on disconnect or lost-peer
+heartbeat. At most eight mappings are editable in the panel; the transport cap
+is 64 channels and 4 KiB per message. Hidden ordinary app sessions do not create
+this bridge or subscribe to mapped controls. The component is keyed by the
+studio reset generation: New patch, import and Return to frame zero unmount the
+old grant and dispose the bridge. Reused node IDs cannot inherit that grant.
+
+Incoming messages change saved literals. Disconnect keeps their last values;
+Restore starting values explicitly restores only the session's incoming targets
+through store commands. Pairing state is never included in graph persistence or
+export. See [the integration guide](AUDIOBRAIN_INTEGRATION.md).
+
 ## Future extensions
 
 The preserved boundaries support the following additions:

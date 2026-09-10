@@ -1,0 +1,48 @@
+.audiobrain-connection {
+  position: fixed;
+  z-index: 40;
+  top: 70px;
+  right: 14px;
+  width: min(360px, calc(100vw - 28px));
+  max-height: calc(100dvh - 115px);
+  overflow: auto;
+  color: var(--ink);
+  border: 1px solid var(--line-bright);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+}
+.audiobrain-connection > header { position: sticky; top: 0; z-index: 1; background: var(--surface); border-bottom: 1px solid var(--line); }
+.audiobrain-connection-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-raised);
+  border: 0;
+  cursor: pointer;
+}
+.audiobrain-connection-toggle strong { color: var(--acid); }
+.audiobrain-connection-toggle [role="status"] { margin-left: auto; color: var(--muted); }
+.audiobrain-connection-body { padding: 0 12px 12px; }
+.audiobrain-connection-body p { line-height: 1.5; overflow-wrap: anywhere; }
+.audiobrain-connection-mappings { display: grid; gap: 10px; }
+.audiobrain-connection fieldset { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+.audiobrain-connection legend { color: var(--muted); padding: 0 5px; }
+.audiobrain-connection label { display: grid; gap: 5px; margin-bottom: 9px; color: var(--muted); }
+.audiobrain-connection input, .audiobrain-connection select {
+  width: 100%;
+  min-height: 32px;
+  padding: 5px 7px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line-bright);
+  border-radius: 5px;
+}
+.audiobrain-connection-body button { padding: 7px 9px; background: var(--surface-soft); border: 1px solid var(--line-bright); border-radius: 6px; cursor: pointer; }
+.audiobrain-connection-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.audiobrain-connection button:disabled { opacity: 0.55; cursor: default; }
+.audiobrain-connection-error { color: var(--danger); }
+.audiobrain-connection-note { color: var(--muted); font-size: 11px; }
